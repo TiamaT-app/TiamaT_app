@@ -28,7 +28,7 @@ from ..src.scripts.generate_new_ground_truth import *
 # initialisation de la variable pour le futur json de configuration
 config_dict={"CURRENT_PROJECT_NAME":"", "LAST_MODEL_PATH":""}
 
-# Route de l'accueil (sans image(hic sunt DRACONES)) pour le choix du projet
+# Route de l'accueil  pour le choix du projet
 @app.route("/",methods=['GET', 'POST'])
 def accueil():
     # pour marquer qu'on est pas en suite d'une passe, utile dans la route suivante 
@@ -98,7 +98,7 @@ def accueil_projet():
         pass    
         
     project_name = app.config['CURRENT_PROJECT_NAME']
-    print(project_name)
+    
     
     #on check si le projet existe déjà 
     if (Path.cwd() / project_name).is_dir():
@@ -155,8 +155,6 @@ def serve_image2(relpath):
     filename= Path(relpath).name
     directory = Path.cwd() / relpath
     directory = directory.parents[0]
-    print(directory)
-    print(filename)
     return send_from_directory(directory, filename)
 
 @app.route('/download/<path:filepath>')
@@ -219,10 +217,10 @@ def upload():
         return render_template ("/pages/upload_full.html", project_name= project_name, files2 = files2, form=form, form2=form2, chemin_images=str(chemin_images), chemin_labels=str(chemin_labels), liste_images=liste_images, liste_noms=liste_noms )
     else:
         print(form.errors)
-        print("erreur!!!")
+        print("erreur de formulaire")
 
 
-@app.route("/label_lancement",methods=['GET', 'POST'])#DRACONES fermer labelstudio 
+@app.route("/label_lancement",methods=['GET', 'POST'])
 def consignes() :
     root = Path.cwd()
     with open("config.json","r") as f:
@@ -240,15 +238,10 @@ def consignes() :
     thread = Thread(target=launch_LS)
     thread.daemon = True
     thread.start()
-    # Launch Label Studio
-    # try:
-        
-        # Bonne idée de maj à chaque lancement? Hit sunt dracones ou qqchose
-    #pour le futur meurtre de LS voir cette page : https://stackoverflow.com/questions/31712056/how-do-i-get-a-threads-pid DRACONES 
+   
+    #pour la future extinction automatique de LS voir cette page : https://stackoverflow.com/questions/31712056/how-do-i-get-a-threads-pid
     return render_template("/pages/lancement_label_studio.html", project_name=project_name, chemin_images=chemin_images, chemin_labels=chemin_labels)
-    # except Exception as e:
-    #     print(f"Error while starting Label Studio: {e}")
-    #     return render_template("/pages/erreur.html", project_name=project_name)
+
     
 
 
@@ -315,11 +308,7 @@ def training():
         if model_name != "------":
             model = str(Path("output") /"train"/ model_name /"weights"/ "best.pt")
             model_name = f'{str(project_name)}_{datetime.now().strftime('%Y%m%d_%H%M%S')}'
-            """ if model_file.filename.endswith(".pt"):
-                model_file.save(Path.cwd(), f"{project_name}_{model_file.filename}")
-                model = f"{project_name}_{model_file.filename}" 
-            else:
-                print(f"le fichier {model_file.filename} n'est pas un modèle valide")"""
+            
             
         else :
             model = "yolo11n.pt"
@@ -379,42 +368,6 @@ def result():
     form2=ImportImages()
     return render_template("/pages/entrainement_fini.html", model_path = model_path, form2= form2, chemin_matrice=chemin_matrice.as_posix(), chemin_val_batch=chemin_val_batch.as_posix())
 
-# COPIE AU CAS OU AVANT DE TOUT CHARCUTER
-# @app.route("/training", methods=['GET', 'POST'])
-# def training():
-#     with open("config.json","r") as f:
-#         app.config["CURRENT_PROJECT_NAME"]=json.load(f).get("CURRENT_PROJECT_NAME")
-#     project_folder = app.config['CURRENT_PROJECT_NAME']
-#     if request.method == 'POST':
-#         nombre_epoch = int(request.form.get("epochs"))
-#         model_file = request.files['model']
-#         if model_file and model_file.filename != "":
-#             print("tranquille oh ! j'ai pas eu le temps de faire ça encore!!!")
-            
-#         else :
-#             model = "yolo11n.pt"
-#     clean_comma(project_folder)
-#     generate_transformed_data(project_folder)
-#     create_training_dataset(project_folder, model, preexisting_distribution=False)
-
-# #Config du réentraînement
-#     use_model = 'yolo11n.pt' # to be changed as needed, by default use 'yolov11x.pt'
-#     img_size = 640 # to be changed as needed, by default use 640
-#     epochs = nombre_epoch # to be changed as needed
-#     batch = -1 # to be changed as needed, by default use 8 or or -1 for AutoBatch
-#     workers = 8 # to be changed as needed, by default 24, or 8 (https://docs.ultralytics.com/modes/train/#train-settings)
-#     dropout = 0.1 # Elimine aléatoirement 10% connaissance à chaque époque
-
-#     yolo_training(project_folder, use_model, img_size, epochs, batch, workers, dropout, pretrained_model=None)
-
-#     model_path =dispatch_data(project_folder, use_model, img_size, 
-#                     epochs, batch, workers, dropout, 
-#                     pretrained_model=None, interrupted_model_folder=False)
-#     cwd = Path.cwd()
-#     model_path= Path(cwd / model_path)
-#     app.config['LAST_MODEL_PATH'] = model_path
-#     form2=ImportImages()
-#     return render_template("/pages/entrainement_fini.html", model_path = model_path, form2= form2)
 
 #la route ci dessous récupère des images pour tester le modèle et fait passer le modèle dessus
 @app.route("/test_modele", methods=['GET', 'POST'])
@@ -431,7 +384,7 @@ def test_upload():
     configure_uploads(app, images_uploadees)
     form2 = ImportImages()
     root = Path.cwd()
-    print(root)
+    
     abspathtoimages = root / project_name
     if form2.validate_on_submit():
         files2=[]
@@ -532,12 +485,12 @@ def test_images_pretrained():
     modeles_dispo = [m.name for m in (Path("output") / "train").iterdir() if m.is_dir()]
     form.modele.choices = [(m, m) for m in modeles_dispo]
     root = Path.cwd()
-    print(root)
+    
     configure_uploads(app, images_uploadees2)
     abspathtoimages = root / project_name
     if form.validate_on_submit():
         model_name = request.form.get("modele")
-        print("modele")
+        print(f"Le modèle sélectionnée est :{model_name}.")
         model = str(Path("output") /"train"/ model_name /"weights"/ "best.pt")
         model_path = (Path.cwd()/"output"/"train"/model_name)
         
@@ -547,7 +500,7 @@ def test_images_pretrained():
             images_uploadees2.save(fichier)
             files2.append(fichier.filename)
     else:
-        print("CATASTROPHE DES DRACONES SUNT PARTOUT")
+        print("erreur de formulaire")
         print(form.errors)
     process_images_with_yolo(abspathtoimages, model_path)
     config_dict={"CURRENT_PROJECT_NAME":project_name, "LAST_MODEL_PATH":model_path.as_posix()}
@@ -565,67 +518,5 @@ def test_images_pretrained():
          
    
     return render_template("/pages/checking_results.html", html_template=html_template, ls_result=ls_result, project_name=project_name, current_folder = Path.cwd(), chemin_images=chemin_images, chemin_labels=chemin_labels)    
-
-""" @app.route("/choisir_modele",methods=['GET', 'POST'])
-def choisir_modele():
-     with open("config.json","r") as f:
-        app.config["CURRENT_PROJECT_NAME"]=json.load(f).get("CURRENT_PROJECT_NAME")
-        app.config['LAST_MODEL_PATH']=json.load(f).get("LAST_MODEL_PATH")
-     form = CheminDuModele()
-     project_folder = app.config['CURRENT_PROJECT_NAME']
-     liste_modeles = get_model_list(project_folder)
-
-     return render_template("/pages/choisir_modele.html" , form = form, liste_modeles =liste_modeles, project_folder=project_folder) """
-
-""" @app.route("/modele_choisi_main",methods=['GET', 'POST'])
-def modeles():
-    with open("config.json","r") as f:
-         app.config["CURRENT_PROJECT_NAME"]=json.load(f).get("CURRENT_PROJECT_NAME")
-         app.config['LAST_MODEL_PATH']=json.load(f).get("LAST_MODEL_PATH")
-    project_name = app.config['CURRENT_PROJECT_NAME']
-    root = Path.cwd()
-    form = CheminDuModele()
-    if form.validate_on_submit():
-             model_path= form.chemin.data
-             app.config['LAST_MODEL_PATH']= Path(root/ "output" /"runs" / "train" / model_path)
-    
-    else:
-        print(form.errors)
-        return render_template("/pages/erreur.html")
-     # app.config['UPLOADED_IMAGES_DEST'] = os.path.join(project_name, "image_inputs", "eval_images")
-    configure_uploads(app, images_uploadees)
-    form2 = ImportImages()
-    
-    abspathtoimages = Path(root / app.config['CURRENT_PROJECT_NAME'])
-    
-    process_images_with_yolo(abspathtoimages, app.config['LAST_MODEL_PATH'])
-    
-    yolo_to_csv(abspathtoimages, app.config['LAST_MODEL_PATH'])
-    ls_result = get_ls_for_local_files(abspathtoimages, app.config['LAST_MODEL_PATH'])
-    html_template = get_labeling_code(abspathtoimages, app.config['LAST_MODEL_PATH'])
-    os.environ['LOCAL_FILES_DOCUMENT_ROOT'] = f'{root}'
-    os.environ['LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED'] = 'true'
-   # ouverture de label studio en fond (thread), affichage de la page en même temps. 
-   
-         
-   
-    return render_template("/pages/checking_results.html", form=form, html_template=html_template, ls_result=ls_result, project_name=project_name, current_folder = os.getcwd())
- """
-#route suivante probablement à jeter? à confirmer
-
-# @app.route("/model_evaluation", methods=['GET'])
-# def checking():
-#     with open("config.json","r") as f:
-#         app.config["CURRENT_PROJECT_NAME"]=json.load(f).get("CURRENT_PROJECT_NAME")
-#         app.config['LAST_MODEL_PATH']=json.load(f).get("LAST_MODEL_PATH")
-#     project_name = app.config['CURRENT_PROJECT_NAME']
-#     yolo_model_path = app.config['LAST_MODEL_PATH']
-#     root = Path.cwd()
-#     project_folder = root /project_name
-#     yolo_model_folder = root / yolo_model_path
-
-
-
-    # return render_template("/pages/evaluation_model.html")
 
 

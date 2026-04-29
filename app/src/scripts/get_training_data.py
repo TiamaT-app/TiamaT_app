@@ -11,7 +11,6 @@ from ..modules.class_names_functions import get_labels, get_class_code
 from ..modules.folders_path import get_img_folder_training, get_ground_truth_folder_training, get_data_folder
 from ..modules.manipulate_files import open_json_file
 
-'''Hic sunt dracones, une fonction pour normaliser les noms des images, et éviter tous caractères qui ne sont ni alphanumériques, ni un .'''
 
 def clean_image_name(project_folder) -> None:
     ground_truth_folder = Path(get_img_folder_training(project_folder))

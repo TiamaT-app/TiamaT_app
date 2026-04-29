@@ -602,7 +602,7 @@ def get_labeling_code(project_folder:str, yolo_model_folder:str) -> None:
     print(f"The labeling template is saved in {labeling_file}")
     return labeling_template
 
-def get_model_list(project_folder):#DRACONES a mettre dans modules/folders_path 
+def get_model_list(project_folder):
     project_name = str(Path(project_folder).name)
     print(project_name)
     models=["------"]
