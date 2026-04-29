@@ -1,0 +1,14 @@
+
+
+<form action = "/accueil_projet" method="POST" enctype="multipart/form-data">
+        <div>
+        {{ form.hidden_tag() }}
+                {{ form.nom(class_="form-control", placeholder_="nom") }}
+        </div>
+        <div>
+        {{ form.projet_existant.label }}
+        {{ form.projet_existant(class_="form-control", id="projet_select") }}
+    </div>
+
+                <input type="submit" value="valider">
+</form>

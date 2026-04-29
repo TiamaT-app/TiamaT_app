@@ -1,0 +1,18 @@
+{% extends "pages/head_foot.html" %}
+{% block body %}
+<body>
+     <figure style="width: 50%; margin: 0 auto; text-align: center;">
+        <img src="{{ url_for('serve_image2', relpath=matrix_path) }}"
+        style="max-width: 30%; height: auto; display: block; margin: 0;">
+           <figcaption>Matrice de confusion</figcaption>
+        </figure>
+        <figure style="width: 50%; margin: 0 auto; text-align: center;">
+        <img src="{{ url_for('serve_image2', relpath=png_path) }}"
+        style="max-width: 30%; height: auto; display: block; margin: 0;">
+           <figcaption>stats</figcaption>
+        </figure>
+        Pour ajouter les images corrigées au jeu d'entrainement, cliquez <button><a href="/dispatch_corrections">ICI</a></button>
+        
+</body>
+ {% endblock %}
+</html>

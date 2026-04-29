@@ -1,0 +1,49 @@
+{% extends "pages/head_foot.html" %}
+
+{% block body %}
+<body>
+    <style>
+        .gallery {
+            max-width: 80%;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2%;
+            padding: 3%;
+            justify-content: center;
+        }
+        .gallery figure {
+            width: 10%;
+            
+            object-fit: contain;
+            border: 1px solid #ddd;
+            border-radius: 2%;
+            padding: 1%;
+        }
+        .gallery figure img {max-width: 90%;
+
+        }
+</style>
+    
+<div> Vous travaillez actuellement dans le projet {{project_name}}. </div> 
+<div>{{files2}} ont bien été ajoutée au projet.</div>
+<div>Vous pouvez ajouter plus d'images ci-dessous :</div>
+{% include "partials/upload.html" %}
+
+<div class = "gallery">
+{% if liste_images is iterable and liste_images is not string %}        
+    {% for i in range(liste_images|length) %}
+        <figure>
+           <img src="{{ url_for('serve_image', filename=liste_images[i]) }}">
+           <figcaption>{{liste_noms[i]}}</figcaption>
+        </figure>
+        {% endfor %}
+    {% else %}
+        {{liste_images}}
+    {% endif %}
+</div>
+<div>Ensuite, pour lancer label studio et le workflow, cliquez ici : <button><a href="/label_lancement">ICI</a></button></div>
+<p> Dans votre projet, rentrez comme stockage d'origine : <b> {{chemin_images}}</b>  et comme chemin de sortie <b> {{chemin_labels}}</b></p>
+<div>Une fois Labelstudio lancé, quand vos annotations seront terminées, cliquez <button><a href="/dataset_statistics">ICI</a></button> pour passer à la suite.</div>
+
+</body>
+{% endblock %}

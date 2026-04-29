@@ -1,0 +1,25 @@
+
+
+{% extends "pages/head_foot.html" %}
+{% block body %}
+<body>
+    <p>Entraînement terminé, le fichier est disponible à {{model_path}}</p>
+<div style="display: flex; gap: 320px; justify-content: center; flex-wrap :wrap;">
+    <figure style="width: 50%; margin: 0 auto; text-align: center;">
+           <img src="{{ url_for('serve_image', filename=chemin_matrice) }}"
+           style="max-width: 30%; height: auto; display: block; margin: 0;">
+           <figcaption>Matrice de confusion des résultats du modèle sur le jeu de validation</figcaption>
+        </figure>
+    <figure style="width: 50%; margin: 0 auto; text-align: center;">
+        <img src="{{ url_for('serve_image', filename=chemin_val_batch) }}"
+        style="max-width: 30%; height: auto; display: block; margin: 0;">
+           <figcaption>Détections sur une sélection d'images du jeu de validation</figcaption>
+        </figure>
+</div>
+<p>{{chemin_matrice}}</p>
+<p> Si vous souhaitez tester votre modèle sur un set d'images, uploadez les ci-dessous :</p>
+    {% include "partials/upload2.html" %}
+</body>
+ {% endblock %}
+</html>
+

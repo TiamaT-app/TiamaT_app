@@ -1,0 +1,20 @@
+<body>
+    <form action = "/start_training" method="POST" enctype="multipart/form-data">
+        <p>Nombre d'epochs?</p>
+        <input type="number" name="epochs" value="10" /><br>
+        <p>Dropout?</p>
+        <input type="number" name="dropout" step = "0.1" value="0.2" /><br>
+        <p>Réutiliser un modèle déjà entraîné dans le cadre du projet?</p>
+         <select name="modele">
+
+{% for each in liste_modeles %}
+
+<option value="{{each}}">{{each}}</option>
+
+{% endfor %}
+
+</select> 
+<!---        <input type="file" name ="model" value = "Modèle personnalisé pour l'entraînement" /><br>---><br>
+        <input type = "submit" value ="Valider"/> 
+    </form>
+</body>

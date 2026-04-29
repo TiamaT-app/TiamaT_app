@@ -1,0 +1,51 @@
+
+{% extends "pages/head_foot.html" %}
+{% block body %}
+<style>
+        .gallery {
+            max-width: 80%;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2%;
+            padding: 3%;
+            justify-content: center;
+        }
+        .gallery figure {
+            width: 10%;
+            
+            object-fit: contain;
+            border: 1px solid #ddd;
+            border-radius: 2%;
+            padding: 1%;
+        }
+        .gallery figure img {max-width: 90%;
+
+        }
+</style>
+
+<body>
+    
+
+<div> Vous travaillez actuellement dans le projet {{project_name}}. Uploader des images pour le projet ci dessous :</div> 
+    {% include "partials/upload.html" %} 
+<div> Ce projet contient actuellement {{nbre_images}} images uploadées, parmi lesquelles :</div>
+<div class = "gallery">
+{% if liste_images is iterable and liste_images is not string %}        
+    {% for i in range(liste_images|length) %}
+        <figure>
+           <img src="{{ url_for('serve_image', filename=liste_images[i]) }}">
+           <figcaption>{{liste_noms[i]}}</figcaption>
+        </figure>
+        {% endfor %}
+    {% else %}
+        {{liste_images}}
+    {% endif %}
+</div>
+
+
+<div>Si les images déjà uploadées vous suffisent, pour lancer label studio et le workflow, cliquez ici : <button ><a href="/label_lancement">ICI</a></button></div>
+<div>Une fois Labelstudio lancé, quand vos annotations seront terminées, cliquez <button><a href="/dataset_statistics">ICI</a></button> pour passer à la suite.</div>
+<div> Si vous avez déjà entrainé un modèle et que vous voulez le tester ou l'appliquer, cliquez <button><a href="/test_pre_trained_model">ICI</a></button>. </div>
+
+</body>
+{% endblock %}

@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Training setup</title>
+</head>
+{% extends "pages/head_foot.html" %}
+{% block body %}
+<body>
+   <div>Organisez ci dessous l'entraînement de votre modèle, si vous n'avez pas de modèle personnalisé à proposer laissez le deuxième champ vide. </div> 
+   {% include "partials/setup_training.html" %}
+   <p>L'entraînement peut prendre un peu de temps, soyez patients !</p>
+</body>
+{% endblock %}
+</html>

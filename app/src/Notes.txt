@@ -1,0 +1,58 @@
+Notes TiamaT
+
+Git Clone == project folder
+
+Au moment du lancement application 'Quel est le nom de votre projet'
+==> project_name = input('Quel est le nom de votre projet') on va renommer le dossier project avec le nom donné 
+
+project_folder = root / project_name
+if project_folder.exists():
+    "Vous avez dàjà un dossier avec le meme nom, merci de doner un autre titre
+    return
+else : 
+    project_folder.mkdir(parents=True)
+    print(votre projet a été créé)
+
+Envoyer la variabale project_folder dans le fichier .env
+
+
+Le fichier lancement LS ==> os.environ['LOCAL_FILES_DOCUMENT_ROOT'] = TiamaT
+
+
+Dans le notebook 4 : 
+
+model_folder = input('Quel modèle voulez-vous utiliser?')
+===> menu déroulant avec la liste des modèles
+
+Dans le notebook 5 : 
+
+On récupère le nom du modèle en fonction du dossier output 
+
+Pour le lancer le notebook 6 :
+
+create_new_ground_truth = input('voulez-vous améliorez le modèle? y/n')
+if create_new_ground_truth ():
+	create_ground_truth # Lancer le dernier notebook
+else:
+	'Félicitation votre modèle {model_name} est prêt'
+
+
+
+Fonction dossier modèle
+
+
+from pathlib import Path
+
+def model_folder(project_folder, output_folder):
+
+    project_name = Path(project_folder).name
+    model_folder = output_folder.replace('predict', 'train')
+    model_folder = model_folder.replace(f'{project_name}_', '', 1)
+
+    print(model_folder)
+    return
+
+project_folder = 'TiamaT/dragon'
+output_folder = 'TiamaT/output/runs/predict/dragon_dragon_20250829_yolo11n_i640_e10_b-1_w8'
+
+model_folder(project_folder, output_folder)

@@ -1,0 +1,12 @@
+<body>
+      <form method="POST" action="{{ url_for('test_images_pretrained') }}" enctype="multipart/form-data" novalidate>
+    {{ form.hidden_tag() }}
+            {{ form.fichiers(class_="form-control", placeholder_="fichiers") }}
+     <div class="field">
+      <label for="{{ form.modele.id }}">{{ form.modele.label.text }}</label>
+      {{ form.modele() }}
+      
+    </div>
+        <input type = "submit" value="Upload des images et inférence du modèle">
+    </form>
+</body>

@@ -1,0 +1,8 @@
+<body>
+    <form action = "/upload" method="POST" enctype="multipart/form-data">
+        {{ form.hidden_tag() }}
+            {{ form2.fichiers(class_="form-control", placeholder_="fichiers") }}
+
+        <input type = "submit" value="Upload">
+    </form>
+</body>
