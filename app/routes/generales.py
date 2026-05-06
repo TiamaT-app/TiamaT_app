@@ -37,7 +37,7 @@ def accueil():
     p = Path.cwd()
     form = NomDuProjet()
     # Liste des dossiers qui sont dans l'application de base
-    liste_dossiers=["data","output","project","app"]
+    liste_dossiers=["data","output","project","app",".git"]
 
     # Liste de tous les dossiers qui sont actuellement dans l'application, projets inclus
     liste_projets = [x for x in os.listdir(p) if os.path.isdir(x)]
@@ -421,6 +421,17 @@ def dispatch_corrections():
     app.config["SECOND_PASS"]= "true"
     return render_template("/pages/end_cycle.html", nom_du_projet = app.config['CURRENT_PROJECT_NAME'])
 
+@app.route("/dont_dispatch_corrections", methods=["GET","POST"])
+def not_dispatch_corrections():
+    with open("config.json","r") as f:
+        config= json.load(f)
+        app.config["CURRENT_PROJECT_NAME"]=config.get("CURRENT_PROJECT_NAME")
+        app.config['LAST_MODEL_PATH']=config.get("LAST_MODEL_PATH")
+    project_folder=Path(Path.cwd()/app.config["CURRENT_PROJECT_NAME"])
+    clean_data(project_folder)
+    dont_generate_new_gt(project_folder)
+    app.config["SECOND_PASS"]= "true"
+    return render_template("/pages/end_cycle2.html", nom_du_projet = app.config['CURRENT_PROJECT_NAME'])
 
 @app.route("/evaluate_model",methods=['GET', 'POST'])
 def evaluate_model():
@@ -441,12 +452,12 @@ def evaluate_model():
     # Generate the file with metrics
     png_path = get_txt_results(project_folder, yolo_model_folder)
     parts = png_path.parts
-    idx = parts.index("version_appli")
+    idx = parts.index("TiamaT_app")
     png_path = Path(*parts[idx + 1:])
     # Generate the confusion matrix
     matrix_path=create_confusion_matrix(project_folder, yolo_model_folder)
     parts = matrix_path.parts
-    idx = parts.index("version_appli")
+    idx = parts.index("TiamaT_app")
     matrix_path = Path(*parts[idx + 1:])
     return render_template("/pages/model_evaluation.html", project_name=project_name, png_path=Path(png_path).as_posix(), matrix_path=Path(matrix_path).as_posix())
 

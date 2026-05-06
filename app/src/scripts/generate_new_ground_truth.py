@@ -377,3 +377,15 @@ def clean_data(project_folder:str) -> None:
             
     print(f"[OK] {removed_annotations} transformed annotation(s) removed from {labels_folder}")
     
+def dont_generate_new_gt(project_folder:str) -> None:
+    """This function removes the images and annotations from eval in case we don't want to add them to the new GT"""
+    img_folder = Path(project_folder/"image_inputs"/"eval_images")
+    annot_folder = Path(project_folder/"annotations"/"prediction_corrections")
+    img_exts = {'.jpg', '.jpeg', '.png', '.tif', '.tiff'}
+    for img in img_folder.iterdir():
+            for img in img_folder.iterdir():
+                if img.is_file() and img.suffix.lower() in img_exts :
+                    img.unlink()
+    for label in annot_folder.iterdir():
+        if label.is_file() and label.suffix.lower() ==".txt":
+                    label.unlink()
