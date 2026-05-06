@@ -1,0 +1,96 @@
+version_scripts/test_fantin/
+# TiamaT Project
+# See: https://git-scm.com/docs/gitignore for syntax details
+#maj pour le dédoublement
+## 1. Build, Output & Data Directories
+/version_scripts/output/
+/version_appli/output/
+/version_appli/dragon_test/
+## 2. Virtual Environments
+version_scripts/label-studio_env/
+version_scripts/tiamat_env/
+version_scripts/.venv/
+version_scripts/env/
+version_scripts/venv/
+tiamat_env/
+
+## 3. Project Skeleton Directories
+# /version_scripts/project/**
+# /version_app/project/**
+!project/**/
+!project/
+!project/**/*.gitkeep
+
+version_scripts/data/*
+!/data/.gitkeep
+
+## 4. Keep .gitkeep Files to Preserve Empty Folders
+!**/.gitkeep
+
+## 5. Python Bytecode & C Extensions
+__pycache__/
+*.py[cod]
+*$py.class
+
+## 6. Jupyter Notebook Checkpoints
+.ipynb_checkpoints/
+
+## 7. Logs & Databases
+*.log
+*.sqlite3
+
+## 8. IDE & Editor Settings
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+## 9. OS & System Files
+.DS_Store
+Thumbs.db
+
+## 10. Temporary & Backup Files
+*.swp
+*~
+
+## 11. Project-related files
+labels.txt
+version_scripts/output/runs/
+version_scripts/data/test_fantin/
+version_appli/output/runs/
+version_appli/data/test_fantin/
+version_appli/test_fantin/
+version_appli/datasets/test_fantin/
+version_appli/data/test_fantin1/
+version_appli/test_fantin1/
+version_appli/ultime_test/
+version_appli/data/ultime_test/
+version_appli/datasets/ultime_test/
+version_appli/test_ultime/
+version_appli/data/test_ultime/
+version_appli/datasets/test_ultime/
+version_appli/torne_hASP/
+version_appli/data/torne_hASP/
+version_appli/datasets/torne_hASP/
+version_appli/angoisse/
+version_appli/data/angoisse/
+version_appli/datasets/angoisse/
+version_appli/config.json
+version_appli/training_config.json
+*.jpg
+*.jpeg
+*.png
+
+
+## misc should-not-be-here-files
+data/
+test_fantin/
+
+## dotenv
+.env
+.config.json
+.training_config.json
+## dotenv et config temporaire
+.env
+version_appli/config.json
+version_appli/training_config.json
