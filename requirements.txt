@@ -12,7 +12,8 @@ python-dotenv==1.2.1
 python-slugify==8.0.4
 PyYAML==6.0.2
 regex==2024.11.6
-torch torchvision --index-url https://download.pytorch.org/whl/cu118
+torch --index-url https://download.pytorch.org/whl/cu126
+torchvision --index-url https://download.pytorch.org/whl/cu126
 tqdm==4.67.1
 ultralytics==8.3.186
 urllib3==2.5.0
