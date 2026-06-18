@@ -440,14 +440,11 @@ def evaluate_model():
     get_csv_results(project_folder, yolo_model_folder, all_results=False)
     # Generate the file with metrics
     png_path = get_txt_results(project_folder, yolo_model_folder)
-    parts = png_path.parts
-    idx = parts.index("version_appli")
-    png_path = Path(*parts[idx + 1:])
+    png_path = png_path.relative_to(Path.cwd())
+
     # Generate the confusion matrix
-    matrix_path=create_confusion_matrix(project_folder, yolo_model_folder)
-    parts = matrix_path.parts
-    idx = parts.index("version_appli")
-    matrix_path = Path(*parts[idx + 1:])
+    matrix_path = create_confusion_matrix(project_folder, yolo_model_folder)
+    matrix_path = matrix_path.relative_to(Path.cwd())
     return render_template("/pages/model_evaluation.html", project_name=project_name, png_path=Path(png_path).as_posix(), matrix_path=Path(matrix_path).as_posix())
 
 @app.route("/test_pre_trained_model",methods=['GET', 'POST'])
