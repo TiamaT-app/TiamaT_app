@@ -37,15 +37,11 @@ def accueil():
     p = Path.cwd()
     form = NomDuProjet()
     # Liste des dossiers qui sont dans l'application de base
-    liste_dossiers=["data","output","project","app"]
-
-    # Liste de tous les dossiers qui sont actuellement dans l'application, projets inclus
-    liste_projets = [x for x in os.listdir(p) if os.path.isdir(x)]
-    
-    # Tri des dossiers pour faire remonter ceux qui sont des projets
-    for i in liste_dossiers:
-        if i in liste_projets:
-            liste_projets.remove(i)
+    liste_dossiers = ["data", "output", "project", "app", "docs", "tiamat_env"]
+    liste_projets = [
+        x for x in os.listdir(p)
+        if os.path.isdir(os.path.join(p, x)) and not x.startswith('.') and x not in liste_dossiers
+    ]
 
     # IL FAUT UN TUPLE NOM AFFICHE + VALEUR dans les choices
     choices = [('', '-- Sélectionner un projet --')]+[(projet,projet) for projet in liste_projets]
@@ -59,11 +55,11 @@ def accueil_projet():
     p = Path.cwd()
     form = NomDuProjet()
     # Cf. route précédente
-    liste_dossiers=["data","output","project","app"]
-    liste_projets = [x for x in os.listdir(p) if os.path.isdir(x)]
-    for i in liste_dossiers:
-        if i in liste_projets:
-            liste_projets.remove(i)
+    liste_dossiers = ["data", "output", "project", "app", "docs", "tiamat_env"]
+    liste_projets = [
+        x for x in os.listdir(p)
+        if os.path.isdir(os.path.join(p, x)) and not x.startswith('.') and x not in liste_dossiers
+    ]
     
     # IL FAUT UN TUPLE NOM AFFICHE + VALEUR dans les choices
     choices = [('', '-- Sélectionner un projet --')]+[(projet,projet) for projet in liste_projets]  
