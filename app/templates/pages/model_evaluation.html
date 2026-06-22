@@ -2,12 +2,12 @@
 {% block body %}
 <body>
      <figure style="width: 50%; margin: 0 auto; text-align: center;">
-        <img src="{{ url_for('serve_image2', relpath=matrix_path) }}"
+        <img src="{{ url_for('files.serve_image2', relpath=matrix_path) }}"
         style="max-width: 30%; height: auto; display: block; margin: 0;">
            <figcaption>Matrice de confusion</figcaption>
         </figure>
         <figure style="width: 50%; margin: 0 auto; text-align: center;">
-        <img src="{{ url_for('serve_image2', relpath=png_path) }}"
+        <img src="{{ url_for('files.serve_image2', relpath=png_path) }}"
         style="max-width: 30%; height: auto; display: block; margin: 0;">
            <figcaption>stats</figcaption>
         </figure>

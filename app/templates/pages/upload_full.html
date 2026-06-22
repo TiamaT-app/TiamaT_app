@@ -33,7 +33,7 @@
 {% if liste_images is iterable and liste_images is not string %}        
     {% for i in range(liste_images|length) %}
         <figure>
-           <img src="{{ url_for('serve_image', filename=liste_images[i]) }}">
+           <img src="{{ url_for('files.serve_image', filename=liste_images[i]) }}">
            <figcaption>{{liste_noms[i]}}</figcaption>
         </figure>
         {% endfor %}

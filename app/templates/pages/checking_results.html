@@ -22,7 +22,7 @@
         {{html_template}}
     </p><p><button onclick="myFunction0()">Copier le template</button></p>
     <p>Les résultats de l'inférence sont dans le fichier : {{ls_result}}</p>
-    <p><a href="{{url_for('download', filepath=ls_result)}}">Télécharger le fichier</a></p>
+    <p><a href="{{url_for('files.download', filepath=ls_result)}}">Télécharger le fichier</a></p>
     
     <p>Inférence terminée, Label Studio est en cours de lancement. Paramétrez un nouveau projet à l'aide du template html ci-dessus, et du fichier json disponible pour corriger votre travail.</p>
     <p>Dans label studio, dans votre projet, le chemin de stockage des images est <b id="chemin_images"> {{chemin_images}}</b> <button onclick="myFunction1()">Copier</button>.<br> Le chemin de stockage des annotations est <b id = chemin_labels> {{chemin_labels}}</b> <button onclick="myFunction2()">Copier</button>.</p>

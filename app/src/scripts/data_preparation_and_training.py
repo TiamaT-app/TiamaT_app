@@ -709,17 +709,6 @@ def dispatch_data(project_folder:str, use_model:str, img_size:int,
     print(f"✅ All data successfully dispatched")
     return model_folder
 
-
-def launch_LS():
-    '''Function that launches LS'''
-    os.environ['LOCAL_FILES_DOCUMENT_ROOT'] = Path.cwd().as_posix()
-    os.environ['LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT'] = Path.cwd().as_posix()
-    os.environ['LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED'] = 'true'
-    
-    print("launching LS")
-    print(f"Document root: {Path.cwd().as_posix()}")
-    os.system('label-studio start --port 8081')
-
 def entrainement (project_folder, nombre_epoch, dropout, model, model_name):
     clean_comma(project_folder)
     generate_transformed_data(project_folder)
