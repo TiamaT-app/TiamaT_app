@@ -1,12 +1,16 @@
-from dotenv import load_dotenv
 import os
 import platform
+from pathlib import Path
+from dotenv import load_dotenv
 
-# BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-load_dotenv('.env')
+env_path = Path('.env')
+if not env_path.exists():
+    env_path.write_text(f'SECRET_KEY={os.urandom(24).hex()}')
+
+load_dotenv(env_path)
 
 class Config():
     DEBUG = True
-    PLATFORM =str(platform.system())
+    PLATFORM = str(platform.system())
     WTF_CSRF_ENABLED = True
     SECRET_KEY = os.environ.get("SECRET_KEY")

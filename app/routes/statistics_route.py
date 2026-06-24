@@ -1,4 +1,3 @@
-import os
 import json
 from pathlib import Path
 
@@ -11,12 +10,17 @@ from ..src.scripts.statistics_for_training import *
 
 statistics_bp = Blueprint("statistics", __name__)
 
+projects_folder = Path.cwd() / "projects"    
+
 
 @statistics_bp.route("/dataset_statistics", methods=['GET', 'POST'])
 def dataset_statistics():
     with open("config.json","r") as f:
-        app.config["CURRENT_PROJECT_NAME"]=json.load(f).get("CURRENT_PROJECT_NAME")
-    project_folder = os.path.join(os.getcwd(), app.config['CURRENT_PROJECT_NAME'])
+        app.config["CURRENT_PROJECT_NAME"] = json.load(f).get("CURRENT_PROJECT_NAME")
+    
+    project_name = app.config['CURRENT_PROJECT_NAME']
+    project_folder = projects_folder / project_name
+
     create_dataset(project_folder, manually_downloaded=False)
     print("dataset created")
     
@@ -31,7 +35,10 @@ def dataset_statistics():
     get_global_results(project_folder)
     print("got global results")
     
-    return render_template("/pages/class_distrib.html",class_distibution_path=url_for('statistics.serve_dataset_image'), project_name=app.config['CURRENT_PROJECT_NAME'])
+    return render_template(
+        "/pages/class_distrib.html",
+        class_distibution_path=url_for('statistics.serve_dataset_image'), 
+        project_name = app.config['CURRENT_PROJECT_NAME'])
 
 
 @statistics_bp.route('/dataset_stats')

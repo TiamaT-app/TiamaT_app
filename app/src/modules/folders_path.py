@@ -14,7 +14,7 @@ Functions included:
 from pathlib import Path
 
 
-def get_img_folder_training(project_folder):
+def get_img_folder_training(project_folder:str | Path) -> str:
     """
     This function recomposes the path to the folder containing the annotated images, 
     corresponding to the 'annotated_images' folder in the structure.
@@ -32,7 +32,7 @@ def get_img_folder_training(project_folder):
     return str(img_folder)
 
 
-def get_img_folder_inference(project_folder):
+def get_img_folder_inference(project_folder:str | Path) -> str:
     """
     This function recomposes the path to the folder containing the non-annotated images, 
     corresponding to the 'eval_images' folder in the structure.
@@ -46,11 +46,11 @@ def get_img_folder_inference(project_folder):
         - Description: Absolute path to the 'eval_images' folder within the project folder.
     """
     
-    img_folder = Path(project_folder).joinpath('image_inputs', 'eval_images')
+    img_folder = Path(project_folder) / 'image_inputs' / 'eval_images'
     return str(img_folder)
 
 
-def get_ground_truth_folder_training(project_folder):
+def get_ground_truth_folder_training(project_folder:str | Path) -> str:
     """
     This function recomposes the path to the folder containing the annotation files, 
     corresponding to the 'ground_truth' folder in the structure.
@@ -69,7 +69,7 @@ def get_ground_truth_folder_training(project_folder):
     return str(ground_truth_folder)
 
 
-def get_corrections_folder_inference(project_folder:str) -> str:
+def get_corrections_folder_inference(project_folder:str | Path) -> str:
     """
     This function recomposes the path to the folder containing the correction files, 
     corresponding to the 'corrections' folder in the structure.
@@ -88,7 +88,7 @@ def get_corrections_folder_inference(project_folder:str) -> str:
     return str(corrections_folder)
 
 
-def get_results_folder(project_folder:str, yolo_model_folder:str) -> str:
+def get_results_folder(project_folder:str | Path, yolo_model_folder:str | Path) -> str:
     """
     This function recomposes the path to the folder where results are stored based on the provided YOLO model and image dataset folders.
     
@@ -115,10 +115,7 @@ def get_results_folder(project_folder:str, yolo_model_folder:str) -> str:
 
 
 
-
-
-
-def get_data_folder(project_folder:str) ->str:
+def get_data_folder(project_folder:str | Path) ->str:
     """
     This function recomposes the path to the data folder corresponding to the provided project folder
     by replacing the project folder name with 'data' in the path.
@@ -132,12 +129,12 @@ def get_data_folder(project_folder:str) ->str:
                        project folder name in the provided path with 'data'.
     """
     
-    root = Path(project_folder).parent
+    root = Path(project_folder).parent.parent
     project_name = Path(project_folder).name
     data_folder = root.joinpath(root, 'data', project_name)
     return str(data_folder)
 
-def get_correctedLabels_folder(project_folder:str, yolo_model_folder:str) -> str:
+def get_correctedLabels_folder(project_folder:str | Path, yolo_model_folder:str | Path) -> str:
     """
     Returns the string path to the corrected labels folder for a given project and YOLO model.
 

@@ -6,16 +6,15 @@ their content, retrieving specific files based on their extension, and filtering
 Functions included:
 1. open_json_file: Opens a JSON file and returns its content as a dictionary.
 2. save_json_file: Saves a dictionary back to a JSON file with a specified path.
-3. change_id: Modifies the 'id' field in a JSON file to reflect the file's basename.
+3. change_id_and_path: Modifies the 'id' field in a JSON file to reflect the file's basename and the image filepath.
 4. get_files: Retrieves a list of files with a specified extension from a folder.
 5. exclude_training_images: Filters out images used for training from a list of file paths.
 """
 
-import glob
 import json
 from pathlib import Path
 
-def open_json_file(file_name:str) -> dict:
+def open_json_file(file_name:str | Path) -> dict:
     """
     This function opens corrected annotation files retrieved from Label Studio, in JSON format.
     
@@ -31,7 +30,7 @@ def open_json_file(file_name:str) -> dict:
     with open(file_name, 'r', encoding='utf-8') as correction_file:
         return json.load(correction_file)
 
-def save_json_file(file_name, data):
+def save_json_file(file_name:str | Path, data:dict) -> None:
     """
     This function saves the corrected annotation file back to JSON format.
 
@@ -47,9 +46,9 @@ def save_json_file(file_name, data):
     with open(file_name, 'w', encoding='utf-8') as corrected_file:
         json.dump(data, corrected_file, indent=4)
 
-def change_id(json_file:str) -> None:
+def change_id_and_path(json_file:str | Path) -> None:
     """
-    This function changes the 'id' field in the JSON file to the basename of the file path.
+    This function changes the 'id' field in the JSON file to the basename of the file path and the image filepath.
 
     :param json_file: 
         - Type: str
@@ -59,9 +58,12 @@ def change_id(json_file:str) -> None:
     """
     
     data = open_json_file(json_file)
+
+    img_path = data['task']['data']['image'].replace('eval_images', 'ground_truth')
+    data['task']['data']['image'] = img_path
     data['id'] = Path(json_file).stem
+    
     save_json_file(json_file, data)
-    print(f'Modifications done in {json_file}')
 
 def get_files(folder:str, extension:str) -> list:
     """
@@ -100,7 +102,7 @@ def exclude_training_images(files:list, img_use_for_training:list) -> list:
     stems_used = {Path(img).stem for img in img_use_for_training}
     return [file for file in files if file.stem not in stems_used]
 
-def load_data_from_files(file_paths):
+def load_data_from_files(file_paths:list) -> list:
     """
     This function reads data from a list of file paths and returns the contents as a list of strings. Each file is opened, 
     read line by line, and each line is stripped of any leading or trailing whitespace before being added to the result list.
@@ -125,7 +127,7 @@ def load_data_from_files(file_paths):
                 data_list.append(line.strip())
     return data_list
 
-def find_image_path(img_folder: Path, image_name: str) -> Path:
+def find_image_path(img_folder:Path, image_name: str) -> Path:
     """
     Finds the image file in the specified folder matching the given base name, regardless of extension.
 

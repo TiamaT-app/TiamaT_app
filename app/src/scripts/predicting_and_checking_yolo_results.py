@@ -20,7 +20,7 @@ from ..modules.folders_path import get_results_folder
 from ..modules.class_names_functions import get_labels, get_class_name, get_class_code
 from ..modules.transform_coordinates_functions import from_relative_coordinates_to_absolute
 
-def process_images_with_yolo(project_folder:str, yolo_model_folder:str) -> None:
+def process_images_with_yolo(project_folder:str | Path, yolo_model_folder:str | Path) -> None:
     """
     Processes all image files in the 'eval_images' subdirectory of a project folder using a YOLO model.
 
@@ -67,7 +67,7 @@ def process_images_with_yolo(project_folder:str, yolo_model_folder:str) -> None:
         process_single_image_with_yolo(project_folder, yolo_model_folder, str(img_path))
         print(f"Processed: {img_path}")
                 
-def process_single_image_with_yolo(project_folder:str, yolo_model_folder:str, img_path:str) -> None:
+def process_single_image_with_yolo(project_folder:str | Path, yolo_model_folder:str | Path, img_path:str | Path) -> None:
     """
     Runs YOLO object detection on a single image and saves the results as a label file in YOLO format.
 
@@ -127,15 +127,15 @@ def process_single_image_with_yolo(project_folder:str, yolo_model_folder:str, im
     
     with open(label_path, 'w') as label_file:
         for box in boxes:
-            xywh = " ".join([f"{value:.4f}" for value in box.xywhn.cpu().squeeze().tolist()])
-            class_id = int(box.cls.cpu().item())
-            confidence = box.conf.cpu().item()
+            xywh = " ".join([f"{value:.4f}" for value in box.xywhn.squeeze().tolist()])
+            class_id = int(box.cls.item())
+            confidence = box.conf.item()
             label_line = f"{class_id} {xywh} {confidence:.4f}\n"
             label_file.write(label_line)
     
     print(f"✅ Saved predictions for {img_name} to {label_path}")
 
-def get_image_data(project_folder:str) -> None:
+def get_image_data(project_folder:str | Path) -> None:
     """
     Generates a CSV file containing metadata for each image in the 'eval_images' subfolder
     of the specified project. Metadata includes image name, format, dimensions, and paths.
@@ -208,7 +208,7 @@ def normalize_filename(filename:str) -> str:
     """
     return unicodedata.normalize('NFKD', filename).encode('ASCII', 'ignore').decode('ASCII')
 
-def yolo_to_csv(project_folder:str, yolo_model_folder:str) -> None:
+def yolo_to_csv(project_folder:str | Path, yolo_model_folder:str | Path) -> None:
     """
     Converts YOLO-format annotation files into a CSV file with full metadata and bounding box information.
 
@@ -315,7 +315,7 @@ def yolo_to_csv(project_folder:str, yolo_model_folder:str) -> None:
     else:
         print("No correspondence found between images and annotations.")
 
-def convert_yolo_annotations_to_label_studio_format(yolo_annotations:str, img_path:str, yolo_model_folder:str) -> list:
+def convert_yolo_annotations_to_label_studio_format(yolo_annotations:list, img_path:str | Path, yolo_model_folder:str | Path) -> list:
     """
     This function converts YOLO annotation data into Label Studio's JSON format. The converted annotations can 
     then be imported into Label Studio for visualization, review, and further editing. The function uses the 
@@ -432,7 +432,7 @@ def convert_unannotated_to_label_studio_format(img_path: str, yolo_model_folder:
     return [entry]
 
 
-def get_ls_for_local_files(project_folder: str, yolo_model_folder: str) -> str:
+def get_ls_for_local_files(project_folder: str, yolo_model_folder: str) -> Path:
     """
     Batch-convert all images in the project's `eval_images` folder into a single Label Studio JSON import file,
     handling both images with YOLO annotations (.txt files) and unannotated images.
@@ -509,7 +509,7 @@ def get_ls_for_local_files(project_folder: str, yolo_model_folder: str) -> str:
         all_ls.extend(entries)
 
     # Rewriting paths for Label Studio
-    new_prefix = '/data/local-files/?d=' + (eval_folder.relative_to(Path(project_folder).parent)).as_posix()
+    new_prefix = '/data/local-files/?d=projects/' + (eval_folder.relative_to(Path(project_folder).parent)).as_posix()
 
     for ann in all_ls:        
         ann['data']['image'] = ann['data']['image'].replace(str(eval_folder), new_prefix).replace("\\",'/')
@@ -538,7 +538,7 @@ def generate_random_colours() -> str:
     
     return hex_colour
 
-def get_labeling_code(project_folder:str, yolo_model_folder:str) -> None:
+def get_labeling_code(project_folder:str, yolo_model_folder:str) -> str:
     """
     Generates a Label Studio XML configuration template using class labels from a YOLO model.
     Each label is assigned a random background color for display in Label Studio.
@@ -602,18 +602,3 @@ def get_labeling_code(project_folder:str, yolo_model_folder:str) -> None:
     print(f"The labeling template is saved in {labeling_file}")
     return labeling_template
 
-def get_model_list(project_folder):
-    project_name = str(Path(project_folder).name)
-    print(project_name)
-    models=["------"]
-    root = Path.cwd()
-    trained_folder = Path( root /"output" / "train")
-    list_models =[str(i.name) for i in trained_folder.iterdir()]
-    print(list_models)
-    for i in list_models:
-        match = re.match(re.escape(project_name) + r"_[0-9]{8}_[0-9]{6}$", i)
-        if match :
-           models.append(i)
-        else :
-            pass
-    return models

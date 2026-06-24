@@ -93,7 +93,7 @@ def add_new_labels(project_folder:str, yolo_model_folder:str) -> None:
         print(f"No new class found. Labels file copied to {label_dict_file}")
 
 
-def get_img_from_training(project_folder:str, yolo_model_folder:str) -> list:
+def get_img_from_training(project_folder:str | Path, yolo_model_folder:str | Path) -> list:
     """
     Returns a list of images from the dataset folder that were used during the YOLO model training.
 
@@ -244,7 +244,7 @@ def get_best_iou_matches(predictions:list, corrected_predictions:list) -> list:
     
     return best_matches
 
-def save_results_to_csv(rows:list, output_file:str) -> None:
+def save_results_to_csv(rows:list, output_file:str | Path) -> None:
     """
     This function saves a list of generated and corrected annotations into a CSV file. If no annotations are provided, 
     it logs a message indicating that no corrections were made and exits the function. Otherwise, it creates a 
@@ -274,8 +274,9 @@ def save_results_to_csv(rows:list, output_file:str) -> None:
     df_sorted = df.sort_values('Filename')
     df_sorted.to_csv(output_file, sep=';',index=False)
     print(f"The {output_file} file has been created.")
+    
 
-def get_csv_results(project_folder:str, yolo_model_folder:str, all_results:bool) -> None:
+def get_csv_results(project_folder:str | Path, yolo_model_folder:str | Path, all_results:bool) -> None:
     """
     Generate a CSV file summarizing the evaluation of YOLO model predictions against manually corrected annotations.
 
@@ -437,7 +438,7 @@ def get_csv_results(project_folder:str, yolo_model_folder:str, all_results:bool)
     
     save_results_to_csv(rows, output_file)
 
-def get_txt_results(project_folder:str, yolo_model_folder:str) -> None:
+def get_txt_results(project_folder:str, yolo_model_folder:str) -> Path:
     
     """
     Generate a text summary and visual table (PNG) of evaluation metrics from YOLO predictions.
@@ -690,7 +691,7 @@ def reformated_decimal(tp:int, fn:int, recall_class:float, precision_class:float
 
 
 
-def create_confusion_matrix(project_folder:str, yolo_model_folder:str) -> None:
+def create_confusion_matrix(project_folder:str, yolo_model_folder:str) -> Path:
     """
     Generate and save a confusion matrix from YOLO prediction results.
 
@@ -707,8 +708,8 @@ def create_confusion_matrix(project_folder:str, yolo_model_folder:str) -> None:
 
     Returns
     -------
-    None
-        A PNG image of the confusion matrix is saved in the results folder.
+    confusion_matrix_path : Path
+        The path to the PNG file containing the confusion matrix.
 
     Notes
     -----
@@ -734,7 +735,6 @@ def create_confusion_matrix(project_folder:str, yolo_model_folder:str) -> None:
     # Open the csv with results
     results = pd.read_csv(csv_with_results, sep=';')
 
-
     # Replace the NaN results with 'Background', the class will be used to show the FP and FN
     predictions = results['Predicted_class'].fillna('Background')
     corrections = results['Corrected_class'].fillna('Background')
@@ -757,4 +757,5 @@ def create_confusion_matrix(project_folder:str, yolo_model_folder:str) -> None:
     plt.savefig(confusion_matrix_path)
     # plt.show()
     plt.clf()
+    
     return confusion_matrix_path

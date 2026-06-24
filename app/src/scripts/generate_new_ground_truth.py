@@ -5,7 +5,7 @@ import pandas as pd
 from PIL import Image
 
 from ..modules.folders_path import *
-from ..modules.manipulate_files import change_id
+from ..modules.manipulate_files import change_id_and_path
 
 def create_new_ground_truth(project_folder:str, yolo_model_folder:str, create_groundtruth:bool) -> None:
     """
@@ -128,7 +128,7 @@ def move_correction_files_and_images(project_folder:str) -> None:
     -----
     - Existing images or annotation files with the same name are renamed to ensure uniqueness.
     - Hidden files (starting with `.`) are ignored when processing annotations.
-    - The `change_id()` function must exist in the codebase and is expected to update the "id" field
+    - The `change_id_and_path()` function must exist in the codebase and is expected to update the "id" field
       of each moved JSON annotation file.
     """
 
@@ -161,7 +161,7 @@ def move_correction_files_and_images(project_folder:str) -> None:
             shutil.move(str(pred_cors_folder /file), str(new_annotation))
 
             # Changes the 'id' field in the JSON file to the basename of the file path
-            change_id(new_annotation)
+            change_id_and_path(new_annotation)
             
     print(f"Annotations files corrected and moved to {str(pred_cors_folder)}")
 
@@ -236,7 +236,7 @@ def add_csv_data(project_folder:str, yolo_model_folder:str) -> None:
 
             img_data = {
                 'Image_name'   : str(img_name),
-                'Folder'       : str(ground_truth_img_folder),
+                'Folder'       : str(ground_truth_img_folder.name),
                 'Absolute_path': absolute_path,
                 'Format'       : format,
                 'Width'        : w,
@@ -283,7 +283,7 @@ def add_csv_data(project_folder:str, yolo_model_folder:str) -> None:
 
             new_rows.append({
                 'Image_name'   : str(img_name),
-                'Folder'       : str(ground_truth_img_folder),
+                'Folder'       : str(ground_truth_img_folder.name),
                 'Absolute_path': absolute_path,
                 'Format'       : img.format,
                 'Width'        : w,

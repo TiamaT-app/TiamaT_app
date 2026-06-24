@@ -9,7 +9,7 @@ from app.app import app
 from flask import Blueprint, render_template, request, redirect, url_for
 
 from ..src.scripts.data_preparation_and_training import *
-from ..src.scripts.predicting_and_checking_yolo_results import get_model_list
+from ..src.modules.models_functions import get_model_list
 from ..src.models.formulaires import ImportImages
 
 training_bp = Blueprint("training", __name__)
@@ -33,19 +33,20 @@ def training():
     with open("config.json","r") as f:
         app.config["CURRENT_PROJECT_NAME"]=json.load(f).get("CURRENT_PROJECT_NAME")
     project_name = app.config['CURRENT_PROJECT_NAME']
-    
+
     if request.method == 'POST':
         nombre_epoch = int(request.form.get("epochs"))
         dropout = float(request.form.get("dropout"))
         model_name = request.form.get("modele")
+
         if model_name != "------":
-            model = str(Path("output") /"train"/ model_name /"weights"/ "best.pt")
-            model_name = f'{str(project_name)}_{datetime.now().strftime('%Y%m%d_%H%M%S')}'
-            
-            
-        else :
+            model = str(Path.cwd() / "output" / "train" / str(model_name) / "weights" / "best.pt")
+            model_name = f'{str(project_name)}_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+        else:
             model = "yolo11n.pt"
-            model_name = f'{str(project_name)}_{datetime.now().strftime('%Y%m%d_%H%M%S')}'
+            model_name = f'{str(project_name)}_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+    
+    
     os.environ["complete"]= "False"
     thread = Thread(target=entrainement, args=(project_name,nombre_epoch, dropout, model, model_name) )
     thread.start()
@@ -85,7 +86,7 @@ def result():
     
     dispatch_data(project_folder, use_model, img_size, 
                   epochs, batch, workers, dropout, model_name,
-                  pretrained_model=None, interrupted_model_folder=False)
+                  pretrained_model= None, interrupted_model_folder= False)
     
     
     cwd = Path.cwd()
