@@ -1,0 +1,30 @@
+# TiamaT Project
+# See: https://git-scm.com/docs/gitignore for syntax details
+
+## 1. Build, Output & Data Directories
+/output/*
+/data/*
+/projects/*
+/env/*
+
+## 2. Secrets & Local Runtime Config (generes a l'execution, propres a la machine)
+/.env
+/config.json
+/training_config.json
+
+## 3. Python Bytecode & C Extensions
+__pycache__/
+*.py[cod]
+*$py.class
+
+## 4. Logs & Databases
+*.log
+
+## 5. Poids de modeles telecharges automatiquement a la racine (ex: yolo11n.pt)
+*.pt
+
+## 6. OS & System Files
+.DS_Store
+Thumbs.db
+docs/.DS_Store
+
