@@ -125,9 +125,9 @@ def test_pretrained():
     choices_modeles = [(m, m) for m in liste_modeles]
     form.modele.choices = choices_modeles  # type: ignore[assignment]
 
-    return render_template("/pages/test_pre_trained.html", liste_modeles=choices_modeles, form= form, project_name = project_name)
+    return render_template("/pages/testing.test_pre_trained.html", liste_modeles=choices_modeles, form= form, project_name = project_name)
 
-@testing_bp.route("/testing.test_images_pretrained", methods=["GET","POST"])
+@testing_bp.route("/test_images_pretrained", methods=["GET","POST"])
 def test_images_pretrained():
     with open("config.json","r") as f:
         config= json.load(f)
