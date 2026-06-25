@@ -1,5 +1,5 @@
 <body>
-      <form method="POST" action="{{ url_for('test_images_pretrained') }}" enctype="multipart/form-data" novalidate>
+      <form method="POST" action="{{ url_for('testing.test_images_pretrained') }}" enctype="multipart/form-data" novalidate>
     {{ form.hidden_tag() }}
             {{ form.fichiers(class_="form-control", placeholder_="fichiers") }}
      <div class="field">
