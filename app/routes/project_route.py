@@ -48,13 +48,13 @@ def accueil_projet():
     # Liste des dossiers qui sont dans l'application de base
     liste_projets = list_existing_projects()
     
-    # Affiche le nom des dossiers existants 
+    # Affiche le nom des dossiers existants => pourquoi on fait ça ici?
     choices = [('', '-- Sélectionner un projet --')]+[(projet,projet) for projet in liste_projets]  
     form.projet_existant.choices = choices # type: ignore[assignment]
     
     if not app.config["SECOND_PASS"]:
         # Si il y a une donnée dans "nom", on check que ce dossier existe pas déjà : 
-        if form.validate_on_submit() and form.nom.data:
+        if form.validate_on_submit() and len(str(form.nom.data)) > 0:
                 project_name = form.nom.data
                 if project_name in liste_projets:
                     return render_template("/pages/erreur_nom_projet.html", project_name=project_name)
