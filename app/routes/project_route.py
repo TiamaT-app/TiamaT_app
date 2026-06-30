@@ -71,7 +71,6 @@ def accueil_projet():
     if not app.config["SECOND_PASS"]:
         # Si il y a une donnée dans "nom", on check que ce dossier existe pas déjà : 
         if form.validate_on_submit() and len(str(form.nom.data)) > 0:
-                print("voie_numero1")
                 project_name = form.nom.data
                 liste_noms = []
                 if project_name in liste_projets:
@@ -84,12 +83,12 @@ def accueil_projet():
                     app.config['CURRENT_PROJECT_NAME'] = project_name
                 
         
-        elif  form.validate_on_submit() and len(str(form.nom.data)) <= 0: 
-            print(form.errors)
+        elif  form.validate_on_submit() and len(str(form.nom.data)) <= 0 and len(str(form.projet_existant.data)) <= 0: 
+          
             return render_template("/pages/erreur_nom_projet.html", project_name=" ")
         #s'il y a une donnée mais pas dans nom, on prend le nom de projet déjà existant du formulaire
         elif form.validate_on_submit():
-                print("voie numero 2")
+             
                 project_name = form.projet_existant.data
                 config_dict['CURRENT_PROJECT_NAME'] = project_name
                 jsonstr = json.dumps(config_dict)
