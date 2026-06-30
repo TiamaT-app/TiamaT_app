@@ -1,0 +1,49 @@
+:root {
+      --blue:      #5FA8C2;
+      --blue-dark: #3a7d96;
+      --blue-bg:   #ddeef4;
+      --green:     #5C7A3E;
+      --green-dark:#313e24;
+      --green-bg:  #dfe8d4;
+      --red:       #9E2524;
+      --gold:      #D6A14F;
+      --cream:     #F6F0E0;
+      --cream-mid: #ede5cc;
+      --ink:       #120F05;
+      --ink70:     rgba(18,15,5,0.7);
+      --ink50:     rgba(18,15,5,0.5);
+      --ink15:     rgba(18,15,5,0.1);
+    }
+
+* {font-family: 'Georgia', serif;}
+html { scroll-behavior: smooth; }
+
+body {
+      font-family: 'Georgia', serif;
+      background: var(--cream);
+      color: var(--ink);
+      font-size: 17px;
+      line-height: 1.75;
+    }
+.top {font-family: 'Georgia', serif;
+    background: var(--green);
+    position: relative;
+    left: 0;
+    right: 0;
+  top: 0;
+} 
+
+.foot{font-family: 'Georgia', serif;
+    background: var(--green);
+    position: relative;
+    left: 0;
+    right: 0;
+  bottom: 0;
+} 
+form{  position: relative;
+  text-align: center;
+  border-radius : 15px;
+  border-width: 3px;
+    border-style: solid;
+border-color:var(--ink) ;
+padding : 2px;} 
