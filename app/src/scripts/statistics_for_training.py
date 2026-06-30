@@ -12,19 +12,19 @@ from ..modules.folders_path import get_data_folder
 from ..modules.class_names_functions import get_labels
 from ..modules.manipulate_files import find_image_path
 
-def create_stats_folder(project_folder:str) -> None:
+def create_stats_folder(project_folder:str | Path) -> None:
     """
     Creates a 'dataset_statistics' subfolder in the training directory if it doesn't exist.
 
     Parameters
     ----------
-    project_folder : str
+    project_folder : str | Path
         Absolute path to the project folder.
     """
     stats_folder = Path(get_data_folder(project_folder)) / 'dataset_statistics'
     stats_folder.mkdir(parents=True, exist_ok=True)
 
-def clean_LS(project_folder:str, annotated_with_LS:bool)-> None:
+def clean_LS(project_folder:str | Path, annotated_with_LS:bool)-> None:
     """
     Renames files in the 'images' and 'labels' subdirectories of a dataset folder
     by removing the prefix added by Label Studio (typically an 8-character alphanumeric
@@ -35,7 +35,7 @@ def clean_LS(project_folder:str, annotated_with_LS:bool)-> None:
 
     Parameters:
     ----------
-    project_folder : str
+    project_folder : str | Path
         The absolute path to the root project folder.
 
     annotated_with_LS : bool
@@ -115,13 +115,13 @@ def get_annotation_files(img_folder:Path, labels_folder:Path) -> list:
             
     return annotation_files
 
-def encoding(project_folder:str) -> None:
+def encoding(project_folder:str | Path) -> None:
     """
     Checks the encoding of annotation files and logs those not in UTF-8.
 
     Parameters
     ----------
-    project_folder : str
+    project_folder : str | Path
         Absolute path to the project folder containing the 'labels' subdirectory.
 
     Returns
@@ -204,13 +204,13 @@ def img_without_annotations(img_folder:Path, labels_folder:Path) -> int:
     
     return count
 
-def annotations_per_img(project_folder:str) -> None:
+def annotations_per_img(project_folder:str | Path) -> None:
     """
     Counts annotations per image and saves results to 'annotations_per_img.csv'.
 
     Parameters
     ----------
-    project_folder : str
+    project_folder : str | Path
         Path to the folder containing 'images', 'labels', and 'dataset_statistics'.
 
     Returns
@@ -250,20 +250,19 @@ def annotations_per_img(project_folder:str) -> None:
 
     print(f'{csv_file_path} created')    
 
-
-def total_annotations(img_folder:str, labels_folder:str) -> int:
+def total_annotations(img_folder:Path, labels_folder:str | Path) -> int:
     """
     This function calculates the total number of annotations present in the specified training dataset 
     by counting the number of non-empty lines in each annotation file. Each line in a `.txt` annotation file 
     typically represents an individual bounding box or object annotation.
 
     :param img_folder: 
-        - Type: str
+        - Type: Path
         - Description: The absolute path to the folder where the images are stored. 
                        The function will look for image files to identify corresponding annotation files.
 
-    :param txt_folder: 
-        - Type: str
+    :param labels_folder: 
+        - Type: str | Path
         - Description: The absolute path to the folder where the annotation files are stored. 
                        The function will look for `.txt` files containing annotation data.
 
@@ -294,14 +293,14 @@ def total_annotations(img_folder:str, labels_folder:str) -> int:
     print(f"The total number of annotations is {total_lines}.")
     return total_lines
 
-def classes_distribution(project_folder:str)-> None:
+def classes_distribution(project_folder:str | Path)-> None:
     """
     Computes class distribution from label files.
     Saves results as a CSV and a horizontal bar chart.
 
     Parameters
     ----------
-    project_folder : str
+    project_folder : str | Path
         Absolute path to the project folder containing 'labels' and 'dataset_statistics'.
 
     Returns
@@ -357,7 +356,7 @@ def classes_distribution(project_folder:str)-> None:
     plt.savefig(figure_path, bbox_inches='tight')
     plt.clf()
 
-def get_global_results(project_folder:str) -> None:
+def get_global_results(project_folder:str | Path) -> None:
     """
     Generates a summary of key dataset metrics and saves it in 'global_data.csv'.
 
@@ -367,7 +366,7 @@ def get_global_results(project_folder:str) -> None:
 
     Parameters
     ----------
-    project_folder : str
+    project_folder : str | Path
         Absolute path to the project folder containing 'images', 'labels', and 'dataset_statistics' subfolders.
 
     Returns
