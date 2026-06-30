@@ -6,15 +6,12 @@ import pandas as pd
 from sklearn import metrics
 import matplotlib.pyplot as plt
 
-
-
-
 from ..modules.folders_path import *
 from ..modules.transform_coordinates_functions import from_ls_to_yolo
 from ..modules.class_names_functions import get_labels, get_class_name, get_class_code
 from ..modules.manipulate_files import open_json_file, save_json_file, get_files, exclude_training_images, load_data_from_files
 
-def add_new_labels(project_folder:str, yolo_model_folder:str) -> None:
+def add_new_labels(project_folder:str | Path, yolo_model_folder:str | Path) -> None:
     """
     Updates the YOLO labels file with new classes found in manually corrected prediction files.
 
@@ -24,10 +21,10 @@ def add_new_labels(project_folder:str, yolo_model_folder:str) -> None:
 
     Parameters
     ----------
-    project_folder : str
+    project_folder : str | Path
         Path to the main project directory.
 
-    yolo_model_folder : str
+    yolo_model_folder :str | Path
         Path to the folder containing the trained YOLO model and its labels.txt file.
 
     Returns
@@ -92,16 +89,15 @@ def add_new_labels(project_folder:str, yolo_model_folder:str) -> None:
         shutil.copy2 (labels_file, label_dict_file)
         print(f"No new class found. Labels file copied to {label_dict_file}")
 
-
 def get_img_from_training(project_folder:str | Path, yolo_model_folder:str | Path) -> list:
     """
     Returns a list of images from the dataset folder that were used during the YOLO model training.
 
     Parameters
     ----------
-    project_folder : str
+    project_folder : str | Path
 
-    yolo_model_folder : str
+    yolo_model_folder : str | Path
         Path to the YOLO model folder (should contain 'dataset_statistics/training_dataset.txt').
 
     Returns
@@ -135,7 +131,6 @@ def get_img_from_training(project_folder:str | Path, yolo_model_folder:str | Pat
         print(f"⚠️ No matching images found in {training_folder} for the model {yolo_model_folder.name}.")
     
     return matching_images
-
 
 def calculate_iou(box1:list, box2:list) -> float:
     """
@@ -255,7 +250,7 @@ def save_results_to_csv(rows:list, output_file:str | Path) -> None:
         - Description: A list of dictionaries containing the generated and corrected annotations. Each dictionary should 
                        represent a single annotation entry with keys as column names.
     :param output_file: 
-        - Type: str
+        - Type: str | Path
         - Description: The path where the CSV file will be created. This file will store the sorted annotations for easy review.
     
     :return: 
@@ -275,7 +270,6 @@ def save_results_to_csv(rows:list, output_file:str | Path) -> None:
     df_sorted.to_csv(output_file, sep=';',index=False)
     print(f"The {output_file} file has been created.")
     
-
 def get_csv_results(project_folder:str | Path, yolo_model_folder:str | Path, all_results:bool) -> None:
     """
     Generate a CSV file summarizing the evaluation of YOLO model predictions against manually corrected annotations.
@@ -438,7 +432,7 @@ def get_csv_results(project_folder:str | Path, yolo_model_folder:str | Path, all
     
     save_results_to_csv(rows, output_file)
 
-def get_txt_results(project_folder:str, yolo_model_folder:str) -> Path:
+def get_txt_results(project_folder:str | Path, yolo_model_folder:str | Path) -> Path:
     
     """
     Generate a text summary and visual table (PNG) of evaluation metrics from YOLO predictions.
@@ -571,8 +565,7 @@ def get_txt_results(project_folder:str, yolo_model_folder:str) -> Path:
     print(f"The {output_png} file has been created.")
     return output_png
 
-
-def get_corrected_label_files(project_folder:str, yolo_model_folder:str) -> None:
+def get_corrected_label_files(project_folder:str | Path, yolo_model_folder:str | Path) -> None:
     """
     Converts corrected annotation files (Label Studio format) into YOLOv8-compatible .txt files.
 
@@ -582,10 +575,10 @@ def get_corrected_label_files(project_folder:str, yolo_model_folder:str) -> None
 
     Parameters
     ----------
-    project_folder : str
+    project_folder : str | Path
         Path to the project directory containing the corrected JSON files.
 
-    yolo_model_folder : str
+    yolo_model_folder : str | Path
         Path to the YOLO model folder containing the 'labels.txt' file for class mapping.
 
     Returns
@@ -689,9 +682,7 @@ def reformated_decimal(tp:int, fn:int, recall_class:float, precision_class:float
     
     return recall_formated, precision_formated, f1_score_formated
 
-
-
-def create_confusion_matrix(project_folder:str, yolo_model_folder:str) -> Path:
+def create_confusion_matrix(project_folder:str | Path, yolo_model_folder:str | Path) -> Path:
     """
     Generate and save a confusion matrix from YOLO prediction results.
 
@@ -700,10 +691,10 @@ def create_confusion_matrix(project_folder:str, yolo_model_folder:str) -> Path:
 
     Parameters
     ----------
-    project_folder : str
+    project_folder : str | Path
         Path to the project folder.
 
-    yolo_model_folder : str
+    yolo_model_folder : str | Path
         Path to the folder containing the YOLO model and its output data.
 
     Returns

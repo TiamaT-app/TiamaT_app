@@ -614,9 +614,9 @@ def resume_training(project_folder:str, interrupted_model_folder:str) -> None:
         name = f"{model_name}/{str(project_name)}_val")
     
 
-def dispatch_data(project_folder:str, use_model:str, img_size:int, 
-                  epochs:int, batch:int, workers:int, dropout:float, model_name:str,
-                  pretrained_model:str, interrupted_model_folder:str) -> None:
+def dispatch_data(project_folder:str | Path, use_model:str | Path, img_size:int, 
+                  epochs:int, batch:int, workers:int, dropout:float, model_name:str | Path,
+                  pretrained_model:str | Path | bool, interrupted_model_folder:str | bool) -> Path:
     """
     This function organizes and finalizes the data used for training by moving relevant files and directories 
     into the model folder. It also restores the original structure of the dataset folder by moving image and 
@@ -632,8 +632,7 @@ def dispatch_data(project_folder:str, use_model:str, img_size:int,
     """
 
     data_folder = Path(get_data_folder(project_folder))
-    path_project_folder = Path(project_folder)
-    project_name = path_project_folder.name
+    project_name = Path(project_folder).name
 
     img_folder = data_folder / 'images'
     img_train_folder = data_folder.parent / 'datasets' / project_name / 'images' / 'train'
@@ -651,15 +650,15 @@ def dispatch_data(project_folder:str, use_model:str, img_size:int,
     
     # Determine which model name to use
     if interrupted_model_folder:
-        model_folder = Path(interrupted_model_folder)
+        model_folder = Path(str(interrupted_model_folder))
         model_name = model_folder.name
     else:
         if not pretrained_model:
             model_name = model_name
         else:
-            model_name = f'{Path(pretrained_model).name}'
+            model_name = f'{Path(str(pretrained_model)).name}'
         
-        model_folder = path_project_folder.parent / 'output' / 'train' / model_name
+        model_folder = Path.cwd() / 'output' / 'train' / model_name
     
     print(model_folder)    
     # Move the data used for the training session into the model folder
@@ -724,5 +723,5 @@ def entrainement (project_folder, nombre_epoch, dropout, model, model_name):
 
     yolo_training(project_folder, use_model, img_size, epochs, 
                   batch, workers, dropout, 
-                  model_name, pretrained_model=None)
+                  model_name, pretrained_model = None)
     os.environ["complete"] = "True"

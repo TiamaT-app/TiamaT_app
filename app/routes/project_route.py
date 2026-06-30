@@ -59,7 +59,7 @@ def accueil_projet():
                 if project_name in liste_projets:
                     return render_template("/pages/erreur_nom_projet.html", project_name=project_name)
                 else:
-                    save_config(project_name=project_name)
+                    save_config(project_name=project_name) # type: ignore[assignment]
         
         #s'il y a une donnée mais pas dans nom, on prend le nom de projet déjà existant du formulaire
         elif form.validate_on_submit() and form.projet_existant.data:
@@ -74,7 +74,7 @@ def accueil_projet():
     if app.config["SECOND_PASS"]:
         project_name = load_current_project()
     
-    project_path = create_project_structure(project_name)
+    project_path = create_project_structure(project_name) # type: ignore[assignment]
     
     #ci desssous si le projet existe déjà on sort ses images pour les afficher.
     chemin_images = project_path / "image_inputs" / "ground_truth_images"

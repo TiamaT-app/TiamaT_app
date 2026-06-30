@@ -397,7 +397,7 @@ def convert_yolo_annotations_to_label_studio_format(yolo_annotations:list, img_p
     #print(label_studio_format)
     return label_studio_format
 
-def convert_unannotated_to_label_studio_format(img_path: str, yolo_model_folder: str) -> list:
+def convert_unannotated_to_label_studio_format(img_path: str | Path, yolo_model_folder: str | Path) -> list:
     """
     Build a Label Studio–compatible JSON entry for an image that has no YOLO annotations.
 
@@ -432,7 +432,7 @@ def convert_unannotated_to_label_studio_format(img_path: str, yolo_model_folder:
     return [entry]
 
 
-def get_ls_for_local_files(project_folder: str, yolo_model_folder: str) -> Path:
+def get_ls_for_local_files(project_folder: str | Path, yolo_model_folder: str | Path) -> Path:
     """
     Batch-convert all images in the project's `eval_images` folder into a single Label Studio JSON import file,
     handling both images with YOLO annotations (.txt files) and unannotated images.
@@ -538,7 +538,7 @@ def generate_random_colours() -> str:
     
     return hex_colour
 
-def get_labeling_code(project_folder:str, yolo_model_folder:str) -> str:
+def get_labeling_code(project_folder:str | Path, yolo_model_folder:str | Path) -> str:
     """
     Generates a Label Studio XML configuration template using class labels from a YOLO model.
     Each label is assigned a random background color for display in Label Studio.

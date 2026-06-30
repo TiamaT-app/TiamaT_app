@@ -7,7 +7,7 @@ from PIL import Image
 from ..modules.folders_path import *
 from ..modules.manipulate_files import change_id_and_path
 
-def create_new_ground_truth(project_folder:str, yolo_model_folder:str, create_groundtruth:bool) -> None:
+def create_new_ground_truth(project_folder:str | Path, yolo_model_folder:str | Path, create_groundtruth:bool) -> None:
     """
     Update an existing YOLO dataset with corrected labels, evaluation images, and an updated class list.
 
@@ -103,8 +103,7 @@ def create_new_ground_truth(project_folder:str, yolo_model_folder:str, create_gr
         
     print("[DONE] Dataset updated in place.")
 
-
-def move_correction_files_and_images(project_folder:str) -> None:
+def move_correction_files_and_images(project_folder:str | Path) -> None:
     """
     Move evaluation images and correction JSON files into their designated folders within the project structure.
 
@@ -165,8 +164,7 @@ def move_correction_files_and_images(project_folder:str) -> None:
             
     print(f"Annotations files corrected and moved to {str(pred_cors_folder)}")
 
-
-def add_csv_data(project_folder:str, yolo_model_folder:str) -> None:
+def add_csv_data(project_folder:str | Path, yolo_model_folder:str | Path) -> None:
     """
     Consolidate image metadata CSV files for a YOLO project.
 
@@ -327,7 +325,7 @@ def add_csv_data(project_folder:str, yolo_model_folder:str) -> None:
         print(f"{len(df_non_filtered)} image(s) merged into {annotated_csv}")
         return
     
-def clean_data(project_folder:str) -> None:
+def clean_data(project_folder:str | Path) -> None:
     """
     Remove transformed images and annotations from a project's data folders.
 

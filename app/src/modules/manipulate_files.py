@@ -59,7 +59,7 @@ def change_id_and_path(json_file:str | Path) -> None:
     
     data = open_json_file(json_file)
 
-    img_path = data['task']['data']['image'].replace('eval_images', 'ground_truth')
+    img_path = data['task']['data']['image'].replace('eval_images', 'ground_truth_images')
     data['task']['data']['image'] = img_path
     data['id'] = Path(json_file).stem
     

@@ -45,8 +45,8 @@ def dataset_statistics():
 def serve_dataset_image():
     with open("config.json","r") as f:
         app.config["CURRENT_PROJECT_NAME"]=json.load(f).get("CURRENT_PROJECT_NAME")
-    project_name=app.config['CURRENT_PROJECT_NAME']
-    filename='class_distribution.png'
+    project_name = app.config['CURRENT_PROJECT_NAME']
+    filename = 'class_distribution.png'
     file_path = Path.cwd() / "data" / project_name / "dataset_statistics" / filename
     if file_path.exists():
         return send_file(file_path, mimetype='image/png')

@@ -1,29 +1,23 @@
 #route qui se lance au clic sur le bouton d'upload d'images dans un projet, place les images dans groundtruth
 
-import os
-import json
-import random
-from pathlib import Path
-
 from app.app import app
-from app.config import Config
 
 from flask import Blueprint, render_template, flash, redirect, url_for
 from flask_uploads import configure_uploads
 
 from ..src.models.formulaires import ImportImages, images as images_uploadees
 
+from app.services.config_service import load_current_project
+from app.services.project_service import projects_folder
+from app.services.image_service import get_preview_images
+
 upload_bp = Blueprint("upload", __name__)
 
-projects_folder = Path.cwd() / "projects"
 
 @upload_bp.route("/upload", methods = ['GET', 'POST'])
 def upload():
-    with open("config.json","r") as f:
-        app.config["CURRENT_PROJECT_NAME"]=json.load(f).get("CURRENT_PROJECT_NAME")
-    print(app.config['CURRENT_PROJECT_NAME'])
     
-    project_name = app.config['CURRENT_PROJECT_NAME']
+    project_name = load_current_project()
     chemin_images = projects_folder / project_name / "image_inputs" / "ground_truth_images"
     chemin_labels = projects_folder / project_name / "annotations" / "ground_truth"
     
@@ -42,24 +36,7 @@ def upload():
         # Get the list of files from webpage
         files2 = str(files2[0] + f" et {len(files2)-1} autre images")
         
-        IMG_EXT = {'.jpg', '.jpeg', '.png'}
-        liste_images = [
-            i for i in chemin_images.iterdir() 
-            if i.is_file() and i.suffix.lower() in IMG_EXT and not i.name.startswith('.')
-            ]
-        random.shuffle(liste_images)
-        nb_images = len(liste_images)
-        
-        if nb_images >= 8 :
-            liste_images = liste_images[:8]
-            liste_noms = [Path(img).name for img in liste_images]
-            liste_images = [i.relative_to(Path.cwd()).as_posix() for i in liste_images]
-        elif nb_images == 0:
-            liste_images = "Pas encore d'images uploadées"
-            liste_noms = []
-        else :
-            liste_noms = [Path(img).name for img in liste_images]
-            liste_images=[Path(i).relative_to(Path.cwd()).as_posix() for i in liste_images]
+        liste_images, liste_noms, nbre_images = get_preview_images(chemin_images)
 
         return render_template(
             "/pages/upload_full.html", 
