@@ -35,10 +35,7 @@ body {
 
 .foot{font-family: 'Georgia', serif;
     background: var(--green);
-    position: relative;
-    left: 0;
-    right: 0;
-  bottom: 0;
+  margin-bottom: -10px;
 } 
 form{  position: relative;
   text-align: center;

@@ -64,13 +64,14 @@ def accueil_projet():
     # Liste des dossiers qui sont dans l'application de base
     liste_projets = list_existing_projects()
     
-    # Affiche le nom des dossiers existants 
+    # Affiche le nom des dossiers existants => pourquoi on fait ça ici?
     choices = [('', '-- Sélectionner un projet --')]+[(projet,projet) for projet in liste_projets]  
     form.projet_existant.choices = choices
     
     if not app.config["SECOND_PASS"]:
         # Si il y a une donnée dans "nom", on check que ce dossier existe pas déjà : 
-        if form.validate_on_submit() and form.nom.data:
+        if form.validate_on_submit() and len(str(form.nom.data)) > 0:
+                print("voie_numero1")
                 project_name = form.nom.data
                 liste_noms = []
                 if project_name in liste_projets:
@@ -82,17 +83,23 @@ def accueil_projet():
                         f.write(jsonstr)
                     app.config['CURRENT_PROJECT_NAME'] = project_name
                 
+        
+        elif  form.validate_on_submit() and len(str(form.nom.data)) <= 0: 
+            print(form.errors)
+            return render_template("/pages/erreur_nom_projet.html", project_name=" ")
         #s'il y a une donnée mais pas dans nom, on prend le nom de projet déjà existant du formulaire
         elif form.validate_on_submit():
+                print("voie numero 2")
                 project_name = form.projet_existant.data
                 config_dict['CURRENT_PROJECT_NAME'] = project_name
                 jsonstr = json.dumps(config_dict)
                 with open("config.json","w") as f:
                         f.write(jsonstr)
-                app.config['CURRENT_PROJECT_NAME'] = project_name     
+                app.config['CURRENT_PROJECT_NAME'] = project_name
+        
         else:
             print(form.errors)
-            return render_template("/pages/erreur_nom_projet2.html", project_name="erreur")
+            return render_template("/pages/erreur_nom_projet.html", project_name=" ")
   
         
     project_name = app.config['CURRENT_PROJECT_NAME']
