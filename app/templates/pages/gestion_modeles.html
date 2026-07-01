@@ -1,0 +1,19 @@
+{% extends "pages/head_foot.html" %}
+{% block body %}
+
+<body>
+<p>Ci-dessous les infos relatives aux modèles du projet {{nom_projet}}. </p>
+{% for table in tables %}
+            {{titles[loop.index]}}
+            {{ table|safe }}
+{% endfor %}
+
+
+<p>Pour ajouter un modèle : </p>
+    {% include "partials/upload_model.html" %} 
+<p> <a href="/"><button>Retourner à l'accueil</button></a></p>
+
+</body>
+
+
+{% endblock %}

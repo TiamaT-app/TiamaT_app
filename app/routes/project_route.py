@@ -14,15 +14,19 @@ historique, non utilise dans ce fichier.
 """
 
 from pathlib import Path
+import os
 
 from flask import Blueprint , render_template, flash, redirect, url_for
+import pandas as pd
 
 from app.app import app
-from ..src.models.formulaires import NomDuProjet, ImportImages
+from ..src.models.formulaires import NomDuProjet, ImportImages, ImportModel
 
 from app.services.config_service import load_current_project, save_config
 from app.services.project_service import list_existing_projects, create_project_structure
 from app.services.image_service import get_preview_images
+from ..src.modules.models_functions import get_model_list
+
 
 project_bp = Blueprint("project", __name__)
 
@@ -52,9 +56,9 @@ def accueil_projet():
     choices = [('', '-- Sélectionner un projet --')]+[(projet,projet) for projet in liste_projets]  
     form.projet_existant.choices = choices # type: ignore[assignment]
     
-    if not app.config["SECOND_PASS"]:
+    # if not app.config["SECOND_PASS"]:
         # Si il y a une donnée dans "nom", on check que ce dossier existe pas déjà : 
-        if form.validate_on_submit() and len(str(form.nom.data)) > 0:
+    if form.validate_on_submit() and len(str(form.nom.data)) > 0:
                 project_name = form.nom.data
                 if project_name in liste_projets:
                     return render_template("/pages/erreur_nom_projet.html", project_name=project_name)
@@ -62,17 +66,17 @@ def accueil_projet():
                     save_config(project_name=project_name) # type: ignore[assignment]
         
         #s'il y a une donnée mais pas dans nom, on prend le nom de projet déjà existant du formulaire
-        elif form.validate_on_submit() and form.projet_existant.data:
+    elif form.validate_on_submit() and form.projet_existant.data:
                 project_name = form.projet_existant.data
                 save_config(project_name=project_name)
-        else:
+    else:
             print(form.errors)
             flash("Merci de renseigner un nom de projet ou de choisir un projet existant.")
             return redirect(url_for('project.accueil'))
   
         
-    if app.config["SECOND_PASS"]:
-        project_name = load_current_project()
+    '''if app.config["SECOND_PASS"]:
+        project_name = load_current_project()'''
     
     project_path = create_project_structure(project_name) # type: ignore[assignment]
     
@@ -94,3 +98,17 @@ def accueil_projet():
         nbre_images=nbre_images,
         chemin_images=chemin_images,
         chemin_labels=chemin_labels)
+
+
+@project_bp.route("/gestion_modeles",methods=['GET', 'POST'])
+def gestion_modeles():
+    project_name = load_current_project()
+    form = ImportModel()
+
+    if (Path("projects")/project_name/f"{project_name}.csv").is_file():
+        df = pd.read_csv(Path("projects")/project_name/f"{project_name}.csv")
+        return render_template("pages/gestion_modeles.html", tables=[df.to_html(classes='data')], titles=df.columns.values, nom_projet = project_name, form = form)
+
+    else:
+        return render_template("pages/gestion_modele2.html", form=form)
+    

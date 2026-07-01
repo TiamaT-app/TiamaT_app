@@ -1,8 +1,9 @@
 import re
 from pathlib import Path
+import pandas as pd
 
 
-def get_model_list(project_folder: str) -> tuple[str, ...]:
+'''def get_model_list(project_folder: str) -> tuple[str, ...]:
     """
     List the trained models available for a given project.
 
@@ -30,4 +31,18 @@ def get_model_list(project_folder: str) -> tuple[str, ...]:
         else:
             pass
 
-    return tuple(models)
+    return tuple(models)'''
+
+def get_model_list(project_folder)-> tuple[str, ...]:
+    """
+    List the trained models available for a given project.
+
+    Always includes "------" as the first entry, used as a placeholder
+    meaning "no previously trained model / train from scratch".
+    """
+    if (Path("projects")/project_folder/f'{project_folder}.csv').is_file():
+        liste = pd.read_csv(Path("projects")/project_folder/f'{project_folder}.csv')["model_name"].tolist()
+        liste.insert(0, "------")
+        return tuple(liste)   
+    else:
+        return tuple("------")

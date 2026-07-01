@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 from datetime import datetime
 from threading import Thread
+import pandas as pd
 
 from flask import Blueprint, render_template, request, redirect, url_for
 
@@ -73,7 +74,6 @@ def check_training_status():
 def result():
     project_name = load_current_project()
     project_folder = projects_folder / project_name
-    
     with open("training_config.json","r") as f:
         dico_config = json.load(f)
         use_model = dico_config["use_model"]
@@ -83,7 +83,20 @@ def result():
         workers = dico_config["workers"]
         dropout = dico_config["dropout"]
         model_name = dico_config["model_name"]
-    
+    dico_config["use_model"] = use_model.replace(str(Path.cwd()), "") 
+    if (Path(project_folder)/f"{project_name}.csv").is_file():
+        df = pd.read_csv(Path(project_folder)/f"{project_name}.csv")
+        dico_config["origine"] = "TiamaT" 
+        df.loc[len(df)] = dico_config
+        df.to_csv(Path(project_folder)/f"{project_name}.csv", index = False)
+    else :
+        dico_config["origine"] = "TiamaT"
+        df = pd.DataFrame(dico_config, index=[0])
+        df.to_csv(Path(project_folder)/f"{project_name}.csv", index = False)
+
+
+
+
     dispatch_data(project_folder, use_model, img_size, 
                   epochs, batch, workers, dropout, model_name,
                   pretrained_model = False, interrupted_model_folder = False)
