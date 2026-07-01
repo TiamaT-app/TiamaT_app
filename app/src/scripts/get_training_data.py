@@ -7,9 +7,10 @@ from slugify import slugify
 
 
 from ..modules.transform_coordinates_functions import from_ls_to_yolo
-from ..modules.class_names_functions import get_labels, get_class_code
+from ..modules.class_functions import get_class_code
 from ..modules.folders_path import get_img_folder_training, get_ground_truth_folder_training, get_data_folder
 from ..modules.manipulate_files import open_json_file
+from ..modules.generate_labels import  get_labels, create_labels_file
 
 
 def clean_image_name(project_folder) -> None:
@@ -108,55 +109,7 @@ def create_csv_file(project_folder:str) -> None:
     
     print(f"Image data saved to {csv_filename}")
 
-def create_labels_file(project_folder:str) -> None:
-        """
-        Creates a labels.txt file containing all unique class labels found in the annotation JSON files.
-        
-        :param project_folder: 
-            - Type: str
-            - Description: The absolute path to the folder named after the project. This folder should contain 
-                        the annotation files, which are used to extract the class labels.
 
-        :return: 
-            - Type: None
-            - Description: This function does not return a value. It creates a text file named 'labels.txt' 
-                        in the project folder's image subdirectory.
-        
-        The resulting text file (`labels.txt`) is saved in the image folder of the project directory, 
-        and can be used for further reference during model training or evaluation.
-        """
-
-        data_folder = Path(get_data_folder(project_folder))
-        data_folder.mkdir(parents=True, exist_ok=True)
-        
-        annotation_folder = Path(get_ground_truth_folder_training(project_folder))
-        labels_file = data_folder / 'labels.txt'
-        
-        annotation_files = [file for file in annotation_folder.iterdir() if not file.name.startswith('.')]
-        
-        unique_classes = set()
-        
-        for annotation_file in annotation_files:
-            try:
-                annotations = open_json_file(annotation_file)
-                
-                for i, result in enumerate(annotations['result']):
-                    value = result['value']
-                    label = value['rectanglelabels'][0]
-                    
-                    unique_classes.add(label)
-            except ValueError as e:
-                print(f"Il y a un problème avec le fichier {annotation_file}. Erreur : {e}")
-                raise
-
-        classes = list(unique_classes)
-        print(classes)
-
-        with open(labels_file, 'w', encoding='utf-8') as file:
-            for index, classe in enumerate(classes):
-                file.write(f"'{index}': '{classe}'\n")
-        
-        print(f"Labels file written in {labels_file} ")
     
 def create_annotations_file(project_folder:str) -> None:
     """
@@ -216,7 +169,7 @@ def create_annotations_file(project_folder:str) -> None:
     print(f"Annotations successfully converted and saved")
 
 
-def clean_classes_file(project_folder:str) -> None:
+def clean_classes_file(project_folder:str | Path) -> None:
     """
     Cleans and converts a 'classes.txt' file into a YOLO-style 'labels.txt' format.
 

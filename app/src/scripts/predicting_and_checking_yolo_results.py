@@ -1,8 +1,6 @@
 import uuid
 import json
-import random
 import unicodedata
-from glob import glob
 from pathlib import Path
 
 import cv2
@@ -10,15 +8,15 @@ import torch
 import pandas as pd
 from PIL import Image
 from ultralytics import YOLO
-import re
 
 import sys
 sys.path.append(str(Path.cwd().parent / 'modules'))
 
 from ..modules.device_function import which_device
 from ..modules.folders_path import get_results_folder
-from ..modules.class_names_functions import get_labels, get_class_name, get_class_code
+from ..modules.class_functions import get_class_name
 from ..modules.transform_coordinates_functions import from_relative_coordinates_to_absolute
+from ..modules.generate_labels import get_labels
 
 def process_images_with_yolo(project_folder:str | Path, yolo_model_folder:str | Path) -> None:
     """
@@ -431,7 +429,6 @@ def convert_unannotated_to_label_studio_format(img_path: str | Path, yolo_model_
 
     return [entry]
 
-
 def get_ls_for_local_files(project_folder: str | Path, yolo_model_folder: str | Path) -> Path:
     """
     Batch-convert all images in the project's `eval_images` folder into a single Label Studio JSON import file,
@@ -520,85 +517,3 @@ def get_ls_for_local_files(project_folder: str | Path, yolo_model_folder: str | 
     print(f"Label Studio annotations written to {json_file}")
     
     return json_file
-
-def generate_random_colours() -> str:
-    """
-    This function generates a random color in hexadecimal RGB format. The color is created by selecting 
-    random values for the red, green, and blue channels, and then formatting these values into a hex string.
-
-    :return: 
-        - Type: str
-        - Description: A string representing the random color in hexadecimal format (e.g., `#a1b2c3`).
-    """
-    r = random.randint(2, 255)
-    g = random.randint(2, 255)
-    b = random.randint(2, 255)
-
-    hex_colour = '#{:02x}{:02x}{:02x}'.format(r, g, b)
-    
-    return hex_colour
-
-def get_labeling_code(project_folder:str | Path, yolo_model_folder:str | Path) -> str:
-    """
-    Generates a Label Studio XML configuration template using class labels from a YOLO model.
-    Each label is assigned a random background color for display in Label Studio.
-
-    !!! Note:
-        The generated file is a text file and must be manually copied into the configuration of a new
-        Label Studio project. It is not a direct import.
-
-    Parameters
-    ----------
-    project_folder : str
-        Path to the root project folder. Used to determine the dataset and where to store the output.
-
-    yolo_model_folder : str or Path
-        Path to the YOLO model directory. Must contain a `labels.txt` file.
-
-    Returns
-    -------
-    None
-        A text file is saved in the model's `results` directory, containing the Label Studio config.
-    """
-
-    # Path construction
-    project_name = Path(project_folder).name
-    
-    results_folder = Path(get_results_folder(project_folder, yolo_model_folder))
-    results_folder.mkdir(parents=True, exist_ok=True)
-
-    final_results_folder = results_folder / 'results'
-    final_results_folder.mkdir(parents=True, exist_ok=True)
-
-    labeling_file = final_results_folder / f"{str(project_name)}_labeling_code.txt" 
-    
-    labels_file = Path(yolo_model_folder) / "labels.txt"
-    labels = get_labels(labels_file)
-    label_names = labels.values()
-    
-    # Add the generated colour to your model for each label usiung the Label Studio template for bounding boxes
-    labeling_template = """<View>
-    <View style="display:flex;align-items:start;gap:8px;flex-direction:row">
-        <Image name="image" value="$image" zoom="true" zoomControl="true" rotateControl="false"/>
-        <RectangleLabels name="label" toName="image" showInline="false">        
-    {label_backgrounds}    </RectangleLabels>
-    </View>
-    </View>
-    """
-    
-    # Generate the part of the model for each label with a random colour
-    label_backgrounds = ""
-    for label in label_names:
-        random_colour = generate_random_colours()
-        label_backgrounds += f'        <Label value="{label}" background="{random_colour}"/>\n'
-    
-    # Intégrez la partie du modèle générée pour chaque étiquette
-    labeling_template = labeling_template.format(label_backgrounds=label_backgrounds)
-    
-    with open(labeling_file, 'w') as file:
-        file.write(labeling_template)
-    
-    # Utilisez le modèle avec les couleurs générées
-    print(f"The labeling template is saved in {labeling_file}")
-    return labeling_template
-

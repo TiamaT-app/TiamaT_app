@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 
 from ..modules.folders_path import get_data_folder
-from ..modules.class_names_functions import get_labels
+from ..modules.generate_labels import get_labels
 from ..modules.manipulate_files import find_image_path
 
 def create_stats_folder(project_folder:str | Path) -> None:

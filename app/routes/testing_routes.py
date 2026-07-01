@@ -8,6 +8,7 @@ from ..src.scripts.generate_new_ground_truth import *
 from ..src.scripts.predicting_and_checking_yolo_results import *
 
 from ..src.modules.models_functions import get_model_list
+from ..src.modules.generate_labels import add_new_labels, get_labeling_code
 
 from ..src.models.formulaires import images as images_uploadees, images2 as images_uploadees2, ImportImages, ImportImages2
 

@@ -8,86 +8,10 @@ import matplotlib.pyplot as plt
 
 from ..modules.folders_path import *
 from ..modules.transform_coordinates_functions import from_ls_to_yolo
-from ..modules.class_names_functions import get_labels, get_class_name, get_class_code
+from ..modules.class_functions import get_class_name, get_class_code
 from ..modules.manipulate_files import open_json_file, save_json_file, get_files, exclude_training_images, load_data_from_files
+from ..modules.generate_labels import get_labels
 
-def add_new_labels(project_folder:str | Path, yolo_model_folder:str | Path) -> None:
-    """
-    Updates the YOLO labels file with new classes found in manually corrected prediction files.
-
-    If new classes are detected in the correction JSON files that are not already listed in
-    the model's labels.txt, they are added with new IDs. The updated labels file is saved
-    to the results folder. If no new classes are found, the original file is simply copied.
-
-    Parameters
-    ----------
-    project_folder : str | Path
-        Path to the main project directory.
-
-    yolo_model_folder :str | Path
-        Path to the folder containing the trained YOLO model and its labels.txt file.
-
-    Returns
-    -------
-    None
-        A new labels.txt file is saved in the results folder.
-    """
-
-    # Load existing labels (may be a dict {"0":"label"} or a list ["label"])
-    labels_file = Path(yolo_model_folder) / 'labels.txt'
-    labels = get_labels(str(labels_file))
-    
-    # Get results folder (destination for corrected labels) and ensure it exists
-    results_folder = Path(get_results_folder(project_folder, yolo_model_folder))
-    results_folder.mkdir(parents=True, exist_ok=True)
-    label_dict_file = results_folder / 'labels.txt'
-
-    # Normalize labels to a dictionary {id: name}
-    if isinstance(labels, dict):
-        train_labels = dict(labels)
-    else:
-        train_labels = {str(i): name for i, name in enumerate(labels)}
-    existing_values = set(train_labels.values())
-
-    # Folder containing manual correction files
-    corrections_folder = Path(get_corrections_folder_inference(project_folder)) 
-    correction_files = [f for f in corrections_folder.iterdir() if not f.name.startswith('.')]
-    
-    unique_classes = set()
-    
-    # Extract all unique corrected classes from correction file
-    for correction_file in correction_files:
-        corrections = open_json_file(str(correction_file))
-        
-        for i, result in enumerate(corrections['result']):
-            value = result.get('value', {})
-            labels_ls = value.get('rectanglelabels', [])
-            if labels_ls:
-                unique_classes.add(labels_ls[0])
-
-    corrected_classes = list(unique_classes)
-    
-    # Identify labels that are not already in the training set
-    new_labels = [c for c in corrected_classes if c not in existing_values]
-    
-    if new_labels:
-        print(f"{len(new_labels)} new label(s) found in the correction files: {new_labels}")
-        
-        # Assign new incremental IDs starting after the last current ID
-        max_id = max(map(int, train_labels.keys())) if train_labels else -1
-        for i, cls, in enumerate(new_labels, start=max_id+1):
-            train_labels[str(i)] = cls
-        
-        # Write the updated labels file
-        with open(label_dict_file, "w", encoding='utf-8') as f:
-            for k, v in train_labels.items():
-                f.write(f"'{k}': '{v}'\n")
-        print(f"Labels file written in {label_dict_file} ")
-    
-    else:
-        # No new labels → copy the existing file
-        shutil.copy2 (labels_file, label_dict_file)
-        print(f"No new class found. Labels file copied to {label_dict_file}")
 
 def get_img_from_training(project_folder:str | Path, yolo_model_folder:str | Path) -> list:
     """

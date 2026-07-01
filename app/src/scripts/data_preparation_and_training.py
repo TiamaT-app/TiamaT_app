@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 
 from ..modules.folders_path import get_data_folder
 from ..modules.device_function import which_device
-from ..modules.class_names_functions import get_labels
+from ..modules.generate_labels import get_labels
 from ..modules.corners_functions import get_corners, from_corners_to_relative
 
 def clean_comma(project_folder:str) -> None:
@@ -48,6 +48,7 @@ def clean_comma(project_folder:str) -> None:
             # Write the modified content in the file
             with open(file, 'w') as file:
                 file.write(content_without_comma)
+
 def perspective_transformation(img_file:str) -> np.ndarray:
     """
     Applies a random perspective transformation to the input image and saves the result.
@@ -99,10 +100,9 @@ def perspective_transformation(img_file:str) -> np.ndarray:
     new_filename = f"{img_path.stem}_PT{img_path.suffix}"
     transformed_img_path = img_path.with_name(new_filename)
 
-    cv2.imwrite(transformed_img_path, dst)
+    cv2.imwrite(str(transformed_img_path), dst)
 
     return M
-
 
 def perspective_transformation_annotation(ann_file:str, img_file:str, M:np.ndarray) -> list:
     """ 
@@ -229,7 +229,7 @@ def generate_transformed_data(project_folder:str) -> None:
 
     print(f'New images stored in {img_folder}\nNew annotations stored in {labels_folder}')
 
-def create_training_dataset(project_folder:str, pretrained_model:str, preexisting_distribution:bool) -> None:
+def create_training_dataset(project_folder:str, pretrained_model:str | None, preexisting_distribution:bool) -> None:
     """
     Prepares training and validation datasets from a directory of images and labels.
     Generates:
@@ -268,8 +268,7 @@ def create_training_dataset(project_folder:str, pretrained_model:str, preexistin
     """
     
     data_folder = Path(get_data_folder(project_folder))
-    project_folder = Path(project_folder)
-    project_name = project_folder.name
+    project_name = Path(project_folder).name
 
     img_folder = data_folder / 'images'
     img_train_folder = data_folder.parent / 'datasets' / project_name / 'images' / 'train'
@@ -361,7 +360,6 @@ def create_training_dataset(project_folder:str, pretrained_model:str, preexistin
     # Create the yaml file
     write_yaml_file(project_folder)
 
-
 def split_data_for_training(img_list:str, labels_folder:str, output_img_folder:str, output_labels_folder:str) -> None:
     """
     Organizes images and annotation files into the appropriate YOLOv8 train/val subdirectories.
@@ -388,11 +386,8 @@ def split_data_for_training(img_list:str, labels_folder:str, output_img_folder:s
 
 
     # Create the output folder if it does not already exist
-    output_img_folder = Path(output_img_folder)
-    output_img_folder.mkdir(parents=True, exist_ok=True)
-    
-    output_labels_folder = Path(output_labels_folder)
-    output_labels_folder.mkdir(parents=True, exist_ok=True)
+    Path(output_img_folder).mkdir(parents=True, exist_ok=True)
+    Path(output_labels_folder).mkdir(parents=True, exist_ok=True)
     
     # Open the text file containing the image paths
     with open(img_list, "r") as f:
@@ -439,8 +434,7 @@ def write_yaml_file(project_folder:str) -> None:
     """
 
     data_folder = Path(get_data_folder(project_folder))
-    project_folder = Path(project_folder)
-    project_name = project_folder.name
+    project_name = Path(project_folder).name
 
     dataset_folder = data_folder.parent / 'datasets' / project_name
     labels_file = data_folder / 'labels.txt'
@@ -473,7 +467,7 @@ def write_yaml_file(project_folder:str) -> None:
 
 def yolo_training(project_folder:str, use_model:str, img_size:int, 
                   epochs:int, batch:int, workers:int, dropout:float, model_name:str,
-                  pretrained_model:str) -> None:
+                  pretrained_model:str | None) -> str:
     """
     Trains a YOLO model using a specified dataset and configuration.
 
@@ -527,8 +521,8 @@ def yolo_training(project_folder:str, use_model:str, img_size:int,
     
     # Derive additional paths and model name
     data_folder = Path(get_data_folder(project_folder))
-    project_folder = Path(project_folder)
-    project_name = project_folder.name
+    project_folder_path = Path(project_folder)
+    project_name = project_folder_path.name
 
     dataset_folder = data_folder.parent / 'datasets' / project_name
     yaml_file = dataset_folder / f"{project_name}.yaml"
@@ -561,7 +555,7 @@ def yolo_training(project_folder:str, use_model:str, img_size:int,
        dropout = dropout,
        workers = workers, # increases training speed, default setting is 8
        name = model_name, # output folder
-       project = project_folder.parent / 'output' / 'train'
+       project = project_folder_path.parent / 'output' / 'train'
     )
 
     # Evaluate the model's performance on the validation set
@@ -589,14 +583,12 @@ def resume_training(project_folder:str, interrupted_model_folder:str) -> None:
     None
         Resumes training and evaluates the model. Results are saved in the same folder.
     """
-
-    interrupted_model_folder = Path(interrupted_model_folder)
-    last_weight = interrupted_model_folder / 'weights' / 'last.pt'
+    last_weight = Path(interrupted_model_folder) / 'weights' / 'last.pt'
     
     if not last_weight.exists():
         raise FileNotFoundError(f"No checkpoint found at {last_weight}")
     
-    model_name = interrupted_model_folder.name
+    model_name = Path(interrupted_model_folder).name
 
     project_name = Path(project_folder).name
 
@@ -613,7 +605,6 @@ def resume_training(project_folder:str, interrupted_model_folder:str) -> None:
     val_results = model.val(
         name = f"{model_name}/{str(project_name)}_val")
     
-
 def dispatch_data(project_folder:str | Path, use_model:str | Path, img_size:int, 
                   epochs:int, batch:int, workers:int, dropout:float, model_name:str | Path,
                   pretrained_model:str | Path | bool, interrupted_model_folder:str | bool) -> Path:
