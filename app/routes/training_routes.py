@@ -20,10 +20,15 @@ training_bp = Blueprint("training", __name__)
 @training_bp.route("/training_setup", methods=['GET', 'POST'])
 def training_setup():
     project_name = load_current_project()
-    if Path("output").is_dir():
+    if (Path("projects")/project_name/f"{project_name}.csv").is_file():
         liste_modeles = get_model_list(project_name)
     else:
-         liste_modeles=["------"]
+         liste_modeles =[]
+         liste_modeles.append("------")
+
+         print(liste_modeles)
+         print(type(liste_modeles))
+         
     return render_template("/pages/training_setup.html", liste_modeles=liste_modeles)
 
 @training_bp.route("/start_training", methods=['GET', 'POST'])

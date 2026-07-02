@@ -43,6 +43,6 @@ def get_model_list(project_folder)-> tuple[str, ...]:
     if (Path("projects")/project_folder/f'{project_folder}.csv').is_file():
         liste = pd.read_csv(Path("projects")/project_folder/f'{project_folder}.csv')["model_name"].tolist()
         liste.insert(0, "------")
-        return tuple(liste)   
+        return liste   
     else:
-        return tuple("------")
+        return ["------"]

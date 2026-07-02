@@ -13,7 +13,7 @@ from threading import Thread
 from flask import Blueprint, render_template, redirect, url_for, flash
 
 from ..src.scripts.get_training_data import clean_image_name
-from ..src.scripts.run_label_studio import launch_LS
+from ..src.scripts.run_label_studio import launch_LS2
 from ..src.models.formulaires import LsToken
 
 
@@ -54,7 +54,7 @@ def _setup_ls_in_background(project_name: str, chemin_images, chemin_labels) -> 
 @labeling_bp.route("/label_lancement",methods=['GET', 'POST'])
 def consignes() :
     if os.environ.get('LABEL_STUDIO_API_TOKEN') is None:
-        launch_LS()
+        launch_LS2()
         form = LsToken()
         return render_template("/pages/ajout_ls_token.html", form=form)
     else:
@@ -73,12 +73,12 @@ def consignes() :
         launch_label_studio_async(on_ready=on_ls_ready)
 
         os.environ["LS_READY"] = "False"
-        thread = Thread(
+        '''thread = Thread(
             target=_setup_ls_in_background,
             args=(project_name, chemin_images, chemin_labels)
         )
         thread.daemon = True
-        thread.start()
+        thread.start()'''
     
         #pour la future extinction automatique de LS voir cette page : https://stackoverflow.com/questions/31712056/how-do-i-get-a-threads-pid
         return render_template(
@@ -129,4 +129,4 @@ def add_token():
             return redirect(url_for('labeling.consignes'))
     else:
         flash("Erreur du formulaire.")
-        return redirect(url_for('labeling.consgines'))
+        return redirect(url_for('labeling.consignes'))

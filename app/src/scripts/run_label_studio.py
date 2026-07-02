@@ -22,3 +22,9 @@ def launch_LS():
     ]
     print(f"DEBUG cmd : {cmd}")
     subprocess.Popen(cmd, env=os.environ.copy())
+
+def launch_LS2():
+        os.environ['LOCAL_FILES_DOCUMENT_ROOT'] = Path.cwd().as_posix()
+        os.environ['LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT'] = Path.cwd().as_posix()
+        os.environ['LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED'] = 'true'
+        os.system("label-studio start")
