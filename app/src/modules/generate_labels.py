@@ -24,8 +24,8 @@ from pathlib import Path
 import shutil
 import random
 
-from modules.folders_path import *
-from modules.manipulate_files import open_json_file
+from .folders_path import *
+from .manipulate_files import open_json_file
 
 
 def get_labels(labels_file):

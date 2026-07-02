@@ -1,0 +1,14 @@
+{% extends "pages/head_foot.html" %}
+{% block body %}
+<body>
+<div>Vous travaillez actuellement dans le projet {{project_name}}.</div>
+<div>✅ Label Studio est prêt — votre projet a été configuré automatiquement.</div>
+<div>Vous pouvez accéder à Label Studio pour annoter vos images : 
+    <button><a href="{{ls_url}}" target="_blank">Ouvrir Label Studio</a></button>
+</div>
+<div>Une fois vos annotations terminées, cliquez 
+    <button><a href="/dataset_statistics">ICI</a></button> 
+    pour passer à la suite.
+</div>
+</body>
+{% endblock %}

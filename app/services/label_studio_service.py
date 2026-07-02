@@ -21,13 +21,18 @@ def configure_label_studio_root() -> None:
     os.environ["LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED"] = "true"
 
 
-def launch_label_studio_async() -> Thread:
+def launch_label_studio_async(on_ready=None) -> Thread:
     """
     Lance Label Studio dans un thread daemon pour ne pas bloquer la requête
-    Flask en cours. Remplace les trois lancements dupliqués dans consignes(),
-    test_upload() et test_images_pretrained().
+    Si on_ready est fourni, l'appelle une fois LS confirmé comme démarré.
     """
-    thread = Thread(target=launch_LS)
+    def _run():
+        launch_LS()
+        if on_ready:
+            on_ready()
+    
+    thread = Thread(target=_run)
     thread.daemon = True
     thread.start()
+    
     return thread

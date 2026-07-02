@@ -14,3 +14,4 @@ class Config():
     PLATFORM = str(platform.system())
     WTF_CSRF_ENABLED = True
     SECRET_KEY = os.environ.get("SECRET_KEY")
+    LABEL_STUDIO_PORT = int(os.environ.get("LABEL_STUDIO_PORT", 8080))
