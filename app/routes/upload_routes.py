@@ -2,7 +2,7 @@
 from pathlib import Path
 import os
 import pandas as pd
-
+from ultralytics import YOLO
 from app.app import app
 
 from flask import Blueprint, render_template, flash, redirect, url_for
@@ -83,12 +83,15 @@ def upload_modele():
                 df.to_csv(Path("projects")/project_name/f"{project_name}.csv", index = False)
             fichier = form.model.data
             fichier.save((Path("output")/"train"/model_name/"weights"/"best.pt"))
+            
+            with open (Path("output")/"train"/model_name/ "labels.txt", "w") as f:
+                for key, val in (YOLO((Path("output")/"train"/model_name/"weights"/"best.pt")).names).items() :
+                    f.write(f"'{key}': '{val}'\n")
         
             return render_template("pages/gestion_modeles.html", tables=[df.to_html(classes='data')], titles=df.columns.values, nom_projet = project_name, form = form)
     else:
         flash("Problème avec le formulaire.")
         return redirect(url_for('project.gestion_modeles'))
-
 
 
 

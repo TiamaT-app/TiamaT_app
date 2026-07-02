@@ -8,15 +8,20 @@ projet, configuration du storage) sans avoir a relancer le serveur a chaque
 changement de projet.
 """
 import os
+from pathlib import Path
 from threading import Thread
 from flask import Blueprint, render_template, redirect, url_for, flash
 
 from ..src.scripts.get_training_data import clean_image_name
+from ..src.scripts.run_label_studio import launch_LS
+from ..src.models.formulaires import LsToken
+
 
 from app.services.config_service import load_current_project
 from app.services.project_service import projects_folder
 from app.services.label_studio_service import configure_label_studio_root, launch_label_studio_async
 from app.services.label_studio_api_service import get_ls_url
+ 
 
 labeling_bp = Blueprint("labeling", __name__)
 
@@ -48,34 +53,39 @@ def _setup_ls_in_background(project_name: str, chemin_images, chemin_labels) -> 
 
 @labeling_bp.route("/label_lancement",methods=['GET', 'POST'])
 def consignes() :
-    project_name = load_current_project()
-    chemin_images = projects_folder / project_name / "image_inputs" / "ground_truth_images"
-    chemin_labels = projects_folder / project_name / "annotations" / "ground_truth"
+    if os.environ.get('LABEL_STUDIO_API_TOKEN') is None:
+        launch_LS()
+        form = LsToken()
+        return render_template("/pages/ajout_ls_token.html", form=form)
+    else:
+        project_name = load_current_project()
+        chemin_images = projects_folder / project_name / "image_inputs" / "ground_truth_images"
+        chemin_labels = projects_folder / project_name / "annotations" / "ground_truth"
 
-    clean_image_name(str(projects_folder / project_name))
-    configure_label_studio_root()
+        clean_image_name(str(projects_folder / project_name))
+        configure_label_studio_root()
+        
+        os.environ["LS_READY"] = "False"
+
+        def on_ls_ready():
+            _setup_ls_in_background(project_name, chemin_images, chemin_labels)
+        
+        launch_label_studio_async(on_ready=on_ls_ready)
+
+        os.environ["LS_READY"] = "False"
+        thread = Thread(
+            target=_setup_ls_in_background,
+            args=(project_name, chemin_images, chemin_labels)
+        )
+        thread.daemon = True
+        thread.start()
     
-    os.environ["LS_READY"] = "False"
-
-    def on_ls_ready():
-        _setup_ls_in_background(project_name, chemin_images, chemin_labels)
-    
-    launch_label_studio_async(on_ready=on_ls_ready)
-
-    os.environ["LS_READY"] = "False"
-    thread = Thread(
-        target=_setup_ls_in_background,
-        args=(project_name, chemin_images, chemin_labels)
-    )
-    thread.daemon = True
-    thread.start()
-   
-    #pour la future extinction automatique de LS voir cette page : https://stackoverflow.com/questions/31712056/how-do-i-get-a-threads-pid
-    return render_template(
-        "/pages/lancement_label_studio.html",
-        project_name=project_name, 
-        chemin_images=chemin_images, 
-        chemin_labels=chemin_labels)
+        #pour la future extinction automatique de LS voir cette page : https://stackoverflow.com/questions/31712056/how-do-i-get-a-threads-pid
+        return render_template(
+            "/pages/lancement_label_studio.html",
+            project_name=project_name, 
+            chemin_images=chemin_images, 
+            chemin_labels=chemin_labels)
 
 @labeling_bp.route("/check_ls_status")
 def check_ls_status():
@@ -107,3 +117,16 @@ def ls_ready():
                            chemin_images=chemin_images,
                            chemin_labels=chemin_labels,
                            ls_url=ls_url)
+
+@labeling_bp.route("/token_added", methods=['GET', 'POST'])
+def add_token():
+    form = LsToken()
+    if form.validate_on_submit:
+        with open(Path(".env"), 'a') as f:
+            f.write(f'\nLABEL_STUDIO_API_TOKEN={form.token.data}')
+            flash("Personnal API Token bien ajouté.")
+            os.environ["LABEL_STUDIO_API_TOKEN"] = form.token.data 
+            return redirect(url_for('labeling.consignes'))
+    else:
+        flash("Erreur du formulaire.")
+        return redirect(url_for('labeling.consgines'))

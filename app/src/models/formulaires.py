@@ -30,3 +30,6 @@ class ImportModel(FlaskForm):
         FileRequired(),
         FileAllowed(['pt'], 'PyTorch Tensor (.pt) only!')
     ])
+
+class LsToken(FlaskForm):
+    token = StringField("token", validators=[Length(min=0)],)
