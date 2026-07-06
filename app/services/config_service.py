@@ -29,7 +29,7 @@ def load_last_model_path() -> str:
     return load_config().get("LAST_MODEL_PATH", "")
 
 
-def save_config(project_name: str = None, last_model_path=None) -> dict:
+def save_config(project_name: str = None, last_model_path:str = None) -> dict: #type: ignore
     """
     Met à jour config.json en ne modifiant QUE les clés fournies (merge avec
     le contenu existant). Corrige le comportement actuel où certaines routes
@@ -44,3 +44,4 @@ def save_config(project_name: str = None, last_model_path=None) -> dict:
     with open(CONFIG_PATH, "w") as f:
         json.dump(config, f)
     return config
+
