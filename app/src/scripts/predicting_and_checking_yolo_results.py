@@ -2,6 +2,7 @@ import uuid
 import json
 import unicodedata
 from pathlib import Path
+import os
 
 import cv2
 import torch
@@ -64,6 +65,7 @@ def process_images_with_yolo(project_folder:str | Path, yolo_model_folder:str | 
         # Run YOLO object detection on the image
         process_single_image_with_yolo(project_folder, yolo_model_folder, str(img_path))
         print(f"Processed: {img_path}")
+    os.environ["test_complete"]= "True"
                 
 def process_single_image_with_yolo(project_folder:str | Path, yolo_model_folder:str | Path, img_path:str | Path) -> None:
     """

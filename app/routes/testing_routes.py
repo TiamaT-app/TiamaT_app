@@ -1,5 +1,9 @@
 from app.app import app
 
+import os
+from datetime import datetime
+from threading import Thread
+
 from flask import Blueprint, render_template, request, flash, redirect, url_for
 from flask_uploads import configure_uploads
 
@@ -18,9 +22,16 @@ from app.services.label_studio_service import launch_label_studio_async
 
 testing_bp = Blueprint("testing", __name__)
 
-#la route ci dessous récupère des images pour tester le modèle et fait passer le modèle dessus
+@testing_bp.route("/check_inference", methods=['GET', 'POST'])
+def check_inference():
+    if os.environ["test_complete"]== "True":
+        return redirect(url_for('testing.test_end'))
+    return render_template('/pages/loading2.html')
+
+
 @testing_bp.route("/test_modele", methods=['GET', 'POST'])
 def test_upload():
+    os.environ["test_complete"]= "False"
     project_name = load_current_project()
     last_model = load_last_model_path()
     app.config['UPLOADED_IMAGES_DEST'] = str(projects_folder / project_name / "image_inputs" / "eval_images")
@@ -33,8 +44,21 @@ def test_upload():
         for fichier in form2.fichiers.data:
             images_uploadees.save(fichier)
             files2.append(fichier.filename)
-    
-    process_images_with_yolo(abspathtoimages, last_model)
+    thread = Thread(target=process_images_with_yolo, args=(abspathtoimages, last_model) )
+    thread.start()
+    return render_template("/pages/loading2.html")
+
+
+
+
+#la route ci dessous récupère des images pour tester le modèle et fait passer le modèle dessus
+@testing_bp.route("/test_end", methods=['GET', 'POST'])
+def test_end():
+    project_name = load_current_project()
+    abspathtoimages = projects_folder / project_name
+    last_model = load_last_model_path()
+
+
     
     launch_label_studio_async()
     
@@ -111,7 +135,7 @@ def test_pretrained():
 
 @testing_bp.route("/test_images_pretrained", methods=["GET","POST"])
 def test_images_pretrained():
-
+    os.environ["test_complete"]= "False"
     project_name = load_current_project()
     app.config['UPLOADED_IMAGES_DEST'] = str(projects_folder / project_name / "image_inputs" / "eval_images")
     form = ImportImages2()
@@ -135,12 +159,16 @@ def test_images_pretrained():
         print(form.errors)
         flash("Merci de sélectionner un modèle et au moins une image.")
         return redirect(url_for('testing.test_pretrained'))
-    
-    process_images_with_yolo(abspathtoimages, model_path)
-    
     save_config(project_name=project_name, last_model_path=model_path)
+    os.environ["test_complete"]= "False"
+
+    thread = Thread(target=process_images_with_yolo, args=(abspathtoimages, model_path) )
+    thread.start()
+    return render_template("/pages/loading2.html")
+
     
-    launch_label_studio_async()
+
+    '''launch_label_studio_async()
     
     yolo_to_csv(abspathtoimages, model_path)
     ls_result = get_ls_for_local_files(abspathtoimages, str(model_path))
@@ -155,4 +183,4 @@ def test_images_pretrained():
                            project_name=project_name, 
                            current_folder = Path.cwd(), 
                            chemin_images=chemin_images, 
-                           chemin_labels=chemin_labels)    
+                           chemin_labels=chemin_labels)'''    

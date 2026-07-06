@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Processing...</title>
+    <meta http-equiv="refresh" content="20;url={{ url_for('testing.check_inference') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <h1>Inférence en cours</h1>
+    <p>Veuillez patienter</p>
+    <div class="spinner">⏳</div>
+<div><img src="{{ url_for('static', filename='toothless-dance.gif') }}"></img></div>
+</html>
