@@ -65,14 +65,27 @@ def training():
         }
     
     with open("training_config.json", "w") as f:
-        json.dump(training_config,f)
-    return render_template('pages/loading.html')
+        json.dump(training_config,f, indent=4)
+
+    return render_template('pages/loading.html',epoch = f"0/{str(nombre_epoch)}")
 
 @training_bp.route("/check_training_status")
 def check_training_status():
     if os.environ["complete"]== "True":
         return redirect(url_for('training.result'))
-    return render_template('/pages/loading.html')
+    else:
+        with open("training_config.json","r") as f:
+            config = json.load(f)
+        model_name = config["model_name"]
+        epochs = config["epochs"]
+        if (Path("output")/"train"/model_name/"results.csv").is_file():
+            epoch_actuelle = (pd.read_csv(Path("output")/"train"/model_name/"results.csv")["epoch"]).to_list()[-1]
+            return render_template('/pages/loading.html', epoch = f"{epoch_actuelle}/{epochs}")
+        else:
+            return render_template('/pages/loading.html', epoch = f"0/{epochs}")
+  
+
+        
 
     
 @training_bp.route("/training_result") #Config du réentraînement
