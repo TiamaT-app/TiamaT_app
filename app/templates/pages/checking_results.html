@@ -5,7 +5,7 @@
 
 
 <body>
-    <script>
+    <!---<script>
     function myFunction0(){
     var html_template = document.getElementById("html_template");
     navigator.clipboard.writeText(html_template.innerHTML);}
@@ -15,7 +15,7 @@
     function myFunction2(){
     var chemin_labels = document.getElementById("chemin_labels");
     navigator.clipboard.writeText(chemin_labels.textContent);}
-    </script>
+    </script>--->
     
 <div style="display: flex; gap: 320px; justify-content: center; flex-wrap :wrap;">
     <p style="border-width: 2px; border-color: black; width: 50%; margin: 0 auto; text-align: center;"  id="html_template">
@@ -25,7 +25,7 @@
     <p><a href="{{url_for('files.download', filepath=ls_result)}}">Télécharger le fichier</a></p>
     
     <p>Inférence terminée, Label Studio est en cours de lancement. Paramétrez un nouveau projet à l'aide du template html ci-dessus, et du fichier json disponible pour corriger votre travail.</p>
-    <p>Dans label studio, dans votre projet, le chemin de stockage des images est <b id="chemin_images"> {{chemin_images}}</b> <button onclick="myFunction1()">Copier</button>.<br> Le chemin de stockage des annotations est <b id = chemin_labels> {{chemin_labels}}</b> <button onclick="myFunction2()">Copier</button>.</p>
+    <!---<p>Le chemin de stockage des images est <b id="chemin_images"> {{chemin_images}}</b> <button onclick="myFunction1()">Copier</button>.<br> Le chemin de stockage des annotations est <b id = chemin_labels> {{chemin_labels}}</b> <button onclick="myFunction2()">Copier</button>.</p>--->
 </div>
 <p> Une fois les annotations faites, pour visualiser les performances de votre modèle cliquez <button ><a href= "/evaluate_model">ICI</a></button></p>
 </body>

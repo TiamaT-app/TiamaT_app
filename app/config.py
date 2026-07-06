@@ -10,7 +10,7 @@ if not env_path.exists():
 load_dotenv(env_path)
 
 class Config():
-    DEBUG = True
+    DEBUG = False
     PLATFORM = str(platform.system())
     WTF_CSRF_ENABLED = True
     SECRET_KEY = os.environ.get("SECRET_KEY")
