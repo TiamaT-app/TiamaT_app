@@ -5,6 +5,7 @@ import pandas as pd
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+from matplotlib.ticker import FuncFormatter
 
 
 
@@ -350,11 +351,17 @@ def classes_distribution(project_folder:str | Path)-> None:
     plt.xlabel('Nombre d\'occurrences')
     plt.ylabel('Classes')
     plt.title('Distribution des classes')
+
+    # Force the X-axis tick marks to be integers
+    max_val = max(occurrences.values())
+    step = max(1, max_val // 10)
+    plt.xticks(range(0, max_val + 1, step))
+    plt.gca().xaxis.set_major_formatter(FuncFormatter(lambda x, _: f'{int(x)}'))
     
     figure_path = data_stat_folder / 'class_distribution.png'
     # Display and save the graph
     plt.savefig(figure_path, bbox_inches='tight')
-    plt.clf()
+    plt.close("all")
 
 def get_global_results(project_folder:str | Path) -> None:
     """
