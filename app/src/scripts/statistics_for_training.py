@@ -345,7 +345,7 @@ def classes_distribution(project_folder:str | Path)-> None:
     print(f'{csv_file_path} created')
     
     # Creating a stacked bar chart
-    plt.barh(class_names, occurrences.values())
+    plt.barh(class_names, occurrences.values(), color="#3a7d96", edgecolor="#313e24")
 
     # Setting axis and title labels
     plt.xlabel('Nombre d\'occurrences')
@@ -360,7 +360,7 @@ def classes_distribution(project_folder:str | Path)-> None:
     
     figure_path = data_stat_folder / 'class_distribution.png'
     # Display and save the graph
-    plt.savefig(figure_path, bbox_inches='tight')
+    plt.savefig(figure_path, bbox_inches='tight', )
     plt.close("all")
 
 def get_global_results(project_folder:str | Path) -> None:

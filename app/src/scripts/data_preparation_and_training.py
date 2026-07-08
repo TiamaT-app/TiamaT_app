@@ -555,12 +555,13 @@ def yolo_training(project_folder:str, use_model:str, img_size:int,
        dropout = dropout,
        workers = workers, # increases training speed, default setting is 8
        name = model_name, # output folder
-       project = project_folder_path.parent / 'output' / 'train'
+       project = Path.cwd() / 'output' / 'train'
     )
 
     # Evaluate the model's performance on the validation set
     model.val(
-        name = f"{model_name}/{str(project_name)}_val")
+        name = f"{model_name}/{str(project_name)}_val",
+        project = Path.cwd() / 'output' / 'train')
     
     print(f"Training completed. Validation results saved to {model_name}/{str(project_name)}_val")
     return model_name
@@ -699,7 +700,7 @@ def dispatch_data(project_folder:str | Path, use_model:str | Path, img_size:int,
     print(f"✅ All data successfully dispatched")
     return model_folder
 
-def entrainement (project_folder, nombre_epoch, dropout, model, model_name):
+def entrainement(project_folder, nombre_epoch, dropout, model, model_name):
     clean_comma(project_folder)
     generate_transformed_data(project_folder)
     create_training_dataset(project_folder, model, preexisting_distribution=False)
