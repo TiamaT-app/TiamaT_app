@@ -225,7 +225,7 @@ def build_ls_label_config(labels: list | dict) -> str:
 
     return labeling_template.format(label_backgrounds=label_backgrounds)
 
-def get_labeling_code(project_folder:str | Path, yolo_model_folder:str | Path) -> str:
+def get_labeling_code(project_folder:str | Path, yolo_model_folder:str | Path) -> tuple:
     """
     Generates a Label Studio XML configuration template using class labels from a YOLO model.
     Each label is assigned a random background color for display in Label Studio.
@@ -269,4 +269,4 @@ def get_labeling_code(project_folder:str | Path, yolo_model_folder:str | Path) -
         file.write(labeling_template)
     
     print(f"The labeling template is saved in {labeling_file}")
-    return labeling_template
+    return labeling_template, labeling_file

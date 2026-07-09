@@ -7,7 +7,7 @@ import pandas as pd
 
 from flask import Blueprint, render_template, request, redirect, url_for
 
-from ..src.scripts.data_preparation_and_training import *
+from ..src.scripts.data_preparation_and_training import training, dispatch_data
 from ..src.modules.models_functions import get_model_list
 from ..src.models.formulaires import ImportImages
 
@@ -32,7 +32,7 @@ def training_setup():
     return render_template("/pages/training_setup.html", liste_modeles=liste_modeles)
 
 @training_bp.route("/start_training", methods=['GET', 'POST'])
-def training():
+def launch_training():
     project_name = load_current_project()
     
     if request.method != 'POST':
@@ -46,12 +46,12 @@ def training():
         model = str(Path.cwd() / "output" / "train" / str(model_name) / "weights" / "best.pt")
         model_name = f'{str(project_name)}_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
     else:
-        model = "yolo11n.pt"
+        model = "yolo26s.pt"
         model_name = f'{str(project_name)}_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
 
 
     os.environ["complete"]= "False"
-    thread = Thread(target=entrainement, args=(project_name,nombre_epoch, dropout, model, model_name) )
+    thread = Thread(target=training, args=(project_name,nombre_epoch, dropout, model, model_name) )
     thread.start()
     
     training_config = {
@@ -67,7 +67,7 @@ def training():
     with open("training_config.json", "w") as f:
         json.dump(training_config,f, indent=4)
 
-    return render_template('pages/loading.html',epoch = f"0/{str(nombre_epoch)}")
+    return render_template('/pages/loading.html',epoch = f"0/{str(nombre_epoch)}")
 
 @training_bp.route("/check_training_status")
 def check_training_status():

@@ -18,6 +18,7 @@ from pathlib import Path
 from label_studio_sdk import LabelStudio
 
 from ..src.modules.generate_labels import get_labels, build_ls_label_config
+from..src.modules.manipulate_files import open_json_file
 
 from app.config import Config
 
@@ -173,3 +174,64 @@ def setup_label_studio_project(
             sync_ls_storage(import_storage_id)
 
     return project_id, ls_url
+
+
+def setup_ls_correction_project(
+    project_name: str,
+    labels_folder_path: Path,
+    img_folder_path: Path,
+    ls_result_file: Path,
+    label_config_file: Path,
+) -> tuple[int, str]:
+    """
+    Créé ou met à jour le projet de correction des predictions du modèle.
+    Le nom du projet LS sera {project_name}_corrections.
+    - Premier lancement : création + storage export + import des tâches avec predictions
+    - Projet existant : mise à jour du label config uniquement, pas de nouvel import
+    Renvoie (project_id, ls_url).
+    """
+    ls_url = wait_for_label_studio()
+    if ls_url is None:
+        raise RuntimeError("Label Studio n'a pas repondu a temps.")
+
+    correction_project_name = f"{project_name}_corrections"
+    client = _get_client()
+    project_id = get_existing_project_id(correction_project_name)
+
+    label_config = label_config_file.read_text(encoding="utf-8")
+
+    if project_id is None:
+        ls_result = open_json_file(ls_result_file)
+        project = client.projects.create(
+            title=correction_project_name,
+            label_config=label_config,
+        )
+        project_id = project.id
+        # storage d'import pour que LS sache où trouver les images
+        # pas de sync -- les taches sont importées via import_tasks()
+        client.import_storage.local.create(
+            project=project_id,
+            path=str(img_folder_path),
+            regex_filter=IMAGE_REGEX_FILTER,
+            use_blob_urls=True,
+            title="eval_images",
+        )
+        client.export_storage.local.create(
+            project=project_id,
+            path=str(labels_folder_path),
+            title="prediction_corrections",
+        )
+        client.projects.import_tasks(id=project_id, request=ls_result)  # type: ignore
+    else:
+        # Projet existant : vider les taches et reimporter les nouvelles
+        client.projects.update(id=project_id, label_config=label_config)
+        # Récupérer tous les IDs des tâches et les supprimer une par une 
+        # A MODIFIER ? Peut être long pour les dossiers avec beaucoup de tâches
+            # -> A voir à l'usage
+        tasks = list(client.tasks.list(project=project_id))
+        for task in tasks:
+            client.tasks.delete(id=task.id)
+        ls_result = open_json_file(ls_result_file)
+        client.projects.import_tasks(id=project_id, request=ls_result) # type:ignore
+
+    return project_id, ls_url # type:ignore

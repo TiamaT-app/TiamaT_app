@@ -18,7 +18,8 @@ from ..src.models.formulaires import images as images_uploadees, images2 as imag
 
 from app.services.config_service import load_current_project,load_last_model_path, save_config
 from app.services.project_service import projects_folder
-from app.services.label_studio_service import launch_label_studio_async
+from app.services.label_studio_service import launch_label_studio_async, configure_label_studio_root
+from app.services.label_studio_api_service import setup_ls_correction_project
 
 testing_bp = Blueprint("testing", __name__)
 
@@ -57,26 +58,29 @@ def test_end():
     project_name = load_current_project()
     abspathtoimages = projects_folder / project_name
     last_model = load_last_model_path()
-
-
     
+    configure_label_studio_root()
     launch_label_studio_async()
     
     yolo_to_csv(abspathtoimages, last_model)
-    ls_result = get_ls_for_local_files(abspathtoimages, last_model)
-    html_template = get_labeling_code(abspathtoimages, last_model)
+    ls_result_file = get_ls_for_local_files(abspathtoimages, last_model)
+    _, label_config_file = get_labeling_code(abspathtoimages, last_model)
     chemin_images = projects_folder / project_name / "image_inputs" / "eval_images"
     chemin_labels = projects_folder / project_name / "annotations" / "prediction_corrections"
-         
+
+    project_id, ls_url = setup_ls_correction_project(
+        project_name=project_name,
+        labels_folder_path=chemin_labels,
+        img_folder_path = chemin_images,
+        ls_result_file=ls_result_file,
+        label_config_file=label_config_file,
+    )
    
     return render_template(
-        "/pages/checking_results.html", 
-        html_template=html_template, 
-        ls_result=ls_result,
-        project_name=project_name, 
-        current_folder = Path.cwd(), 
-        chemin_images=chemin_images, 
-        chemin_labels=chemin_labels)
+        "/pages/checking_results.html",
+        project_name=project_name,
+        ls_url = ls_url 
+        )
 
 @testing_bp.route("/dispatch_corrections",methods=['GET', 'POST'])
 def dispatch_corrections():
@@ -165,22 +169,3 @@ def test_images_pretrained():
     thread = Thread(target=process_images_with_yolo, args=(abspathtoimages, model_path) )
     thread.start()
     return render_template("/pages/loading2.html")
-
-    
-
-    '''launch_label_studio_async()
-    
-    yolo_to_csv(abspathtoimages, model_path)
-    ls_result = get_ls_for_local_files(abspathtoimages, str(model_path))
-    html_template = get_labeling_code(abspathtoimages, str(model_path))
-    
-    chemin_images = projects_folder / project_name / "image_inputs" / "eval_images"
-    chemin_labels = projects_folder / project_name / "annotations" / "prediction_corrections"
-         
-    return render_template("/pages/checking_results.html", 
-                           html_template=html_template, 
-                           ls_result=ls_result, 
-                           project_name=project_name, 
-                           current_folder = Path.cwd(), 
-                           chemin_images=chemin_images, 
-                           chemin_labels=chemin_labels)'''    

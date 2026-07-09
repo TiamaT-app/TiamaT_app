@@ -25,7 +25,6 @@ from ..src.models.formulaires import NomDuProjet, ImportImages, ImportModel
 from app.services.config_service import load_current_project, save_config
 from app.services.project_service import list_existing_projects, create_project_structure
 from app.services.image_service import get_preview_images
-from ..src.modules.models_functions import get_model_list
 
 
 project_bp = Blueprint("project", __name__)

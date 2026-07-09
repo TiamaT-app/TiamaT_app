@@ -2,7 +2,7 @@
 <html>
 <head>
     <title>Processing...</title>
-    <meta http-equiv="refresh" content="20;url={{ url_for('training.check_training_status') }}">
+    <meta http-equiv="refresh" content="10;url={{ url_for('training.check_training_status') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
@@ -10,9 +10,9 @@
     <p>Veuillez patienter</p>
     <p>Progression : {{epoch}} epochs</p>
     <div class="spinner">⏳</div>
-    <marquee direction = "right">
-        <img src="https://gist.githubusercontent.com/aviaryan/3f7c37d7af78e5bfcb4c7efa590f9cae/raw/8957088c2e31dba6d72ce86c615cb3c7bb7f0b0c/nyan-cat.gif">
-    </marquee>
+    <div style="position: static;">
+        <img src="https://gist.githubusercontent.com/aviaryan/3f7c37d7af78e5bfcb4c7efa590f9cae/raw/8957088c2e31dba6d72ce86c615cb3c7bb7f0b0c/nyan-cat.gif", style="height: 20%;">
+    </div>
 
 </body>
 </html>

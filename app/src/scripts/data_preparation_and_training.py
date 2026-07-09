@@ -18,7 +18,7 @@ from ..modules.device_function import which_device
 from ..modules.generate_labels import get_labels
 from ..modules.corners_functions import get_corners, from_corners_to_relative
 
-def clean_comma(project_folder:str) -> None:
+def clean_comma(project_folder:str | Path) -> None:
     """
     This function removes any commas that may appear in the annotation `.txt` files within the specified training folder.
     This is particularly useful when annotation files are generated or modified from CSV files, 
@@ -188,7 +188,7 @@ def perspective_transformation_annotation(ann_file:str, img_file:str, M:np.ndarr
 
     return bb_coordinates
 
-def generate_transformed_data(project_folder:str) -> None:
+def generate_transformed_data(project_folder:str | Path) -> None:
     """
     This function generates a set of transformed images and their corresponding annotations by applying 
     perspective transformations to each image and adjusting the bounding box annotations accordingly. 
@@ -229,7 +229,7 @@ def generate_transformed_data(project_folder:str) -> None:
 
     print(f'New images stored in {img_folder}\nNew annotations stored in {labels_folder}')
 
-def create_training_dataset(project_folder:str, pretrained_model:str | None, preexisting_distribution:bool) -> None:
+def create_training_dataset(project_folder:str | Path, pretrained_model:str | None, preexisting_distribution:bool) -> None:
     """
     Prepares training and validation datasets from a directory of images and labels.
     Generates:
@@ -414,7 +414,7 @@ def split_data_for_training(img_list:str, labels_folder:str, output_img_folder:s
     print(f'Image files move in {output_img_folder}')
     print(f'Text files move in {output_labels_folder}')
 
-def write_yaml_file(project_folder:str) -> None:
+def write_yaml_file(project_folder:str | Path) -> None:
     """
     Creates a `.yaml` configuration file for YOLOv8 training, specifying:
     - Dataset path
@@ -465,7 +465,7 @@ def write_yaml_file(project_folder:str) -> None:
 
     print(f"File written to {yaml_path}")
 
-def yolo_training(project_folder:str, use_model:str, img_size:int, 
+def yolo_training(project_folder:str | Path, use_model:str, img_size:int, 
                   epochs:int, batch:int, workers:int, dropout:float, model_name:str,
                   pretrained_model:str | None) -> str:
     """
@@ -700,7 +700,7 @@ def dispatch_data(project_folder:str | Path, use_model:str | Path, img_size:int,
     print(f"✅ All data successfully dispatched")
     return model_folder
 
-def entrainement(project_folder, nombre_epoch, dropout, model, model_name):
+def training(project_folder:str | Path, nombre_epoch:int, dropout:float, model:str, model_name:str) -> None:
     clean_comma(project_folder)
     generate_transformed_data(project_folder)
     create_training_dataset(project_folder, model, preexisting_distribution=False)
