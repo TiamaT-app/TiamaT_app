@@ -61,7 +61,7 @@ def change_ids_and_path(json_file:str | Path, project_id:int | None) -> None:
 
     img_path = data['task']['data']['image'].replace('eval_images', 'ground_truth_images')
     data['task']['data']['image'] = img_path
-    data['id'] = Path(json_file).stem
+    data['id'] = int(Path(json_file).stem)
     data["project"] = project_id
     data['task']["project"] = project_id
     
