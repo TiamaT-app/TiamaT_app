@@ -18,7 +18,7 @@ from pathlib import Path
 from label_studio_sdk import LabelStudio
 
 from ..src.modules.generate_labels import get_labels, build_ls_label_config
-from..src.modules.manipulate_files import open_json_file
+from..src.modules.manipulate_files import open_json_file, convert_gt_annotation_to_ls_task
 
 from app.config import Config
 
@@ -153,7 +153,7 @@ def setup_label_studio_project(
     labels_file: Path | None = None,
 ) -> tuple[int, str]:
     """
-    Cree ou met a jour un projet LS.
+    Créé ou met a jour un projet LS.
     Renvoie (project_id, ls_url).
     """
     ls_url = wait_for_label_studio()
@@ -167,11 +167,49 @@ def setup_label_studio_project(
         storage_ids = configure_ls_storage(project_id, chemin_images, chemin_labels)
         sync_ls_storage(storage_ids["import_storage_id"])
     else:
+        client = _get_client()
         if labels_file and labels_file.exists():
             update_ls_label_config(project_id, labels_file)
-        import_storage_id = get_import_storage_id(project_id)
-        if import_storage_id:
-            sync_ls_storage(import_storage_id)
+        
+        # Récupérer les taches existantes pour ne pas écraser les annotations en cours
+        existing_tasks = {
+            task.data["image"]: task.id 
+            for task in client.tasks.list(project=project_id)
+        }
+        
+        # Images présentes sur le disque
+        img_folder = chemin_images  # projects/{nom}/image_inputs/ground_truth_images
+        img_exts = {'.jpg', '.jpeg', '.png', '.tiff'}
+        images_on_disk = {
+            f"/data/local-files/?d=projects/{project_name}/image_inputs/ground_truth_images/{f.name}"
+            for f in img_folder.iterdir()
+            if f.is_file() and not f.name.startswith('.') and f.suffix.lower() in img_exts
+        }
+        
+        # Annotations GT existantes
+        gt_annotations = {
+            data["task"]["data"]["image"]: data
+            for f in chemin_labels.iterdir()
+            if f.is_file() and not f.name.startswith('.')
+            for data in [open_json_file(f)]
+        }
+        
+        # Importer uniquement les nouvelles images (pas déjà dans LS)
+        new_tasks = []
+        for img_url in images_on_disk:
+            if img_url not in existing_tasks:
+                if img_url in gt_annotations:
+                    # Nouvelle image avec annotation existante
+                    new_tasks.append({
+                        "data": {"image": img_url},
+                        "annotations": [{"result": gt_annotations[img_url]["result"]}]
+                    })
+                else:
+                    # Nouvelle image sans annotation
+                    new_tasks.append({"data": {"image": img_url}})
+        
+        if new_tasks:
+            client.projects.import_tasks(id=project_id, request=new_tasks)
 
     return project_id, ls_url
 
@@ -235,3 +273,4 @@ def setup_ls_correction_project(
         client.projects.import_tasks(id=project_id, request=ls_result) # type:ignore
 
     return project_id, ls_url # type:ignore
+

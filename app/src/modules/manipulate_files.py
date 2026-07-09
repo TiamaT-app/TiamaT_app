@@ -46,7 +46,7 @@ def save_json_file(file_name:str | Path, data:dict) -> None:
     with open(file_name, 'w', encoding='utf-8') as corrected_file:
         json.dump(data, corrected_file, indent=4)
 
-def change_id_and_path(json_file:str | Path) -> None:
+def change_ids_and_path(json_file:str | Path, project_id:int | None) -> None:
     """
     This function changes the 'id' field in the JSON file to the basename of the file path and the image filepath.
 
@@ -62,6 +62,8 @@ def change_id_and_path(json_file:str | Path) -> None:
     img_path = data['task']['data']['image'].replace('eval_images', 'ground_truth_images')
     data['task']['data']['image'] = img_path
     data['id'] = Path(json_file).stem
+    data["project"] = project_id
+    data['task']["project"] = project_id
     
     save_json_file(json_file, data)
 
@@ -159,3 +161,37 @@ def find_image_path(img_folder:Path, image_name: str) -> Path:
         if candidate.exists():
             return candidate
     raise FileNotFoundError(f"No image found for '{image_name}' in {img_folder}")
+
+def get_gt_project_id(ground_truth_folder: str| Path) -> int | None:
+    """
+    Reads the first JSON file in the ground_truth folder to retrieve the ID of the associated Label Studio project.
+    :param ground_truth_folder: 
+        - Type: str| Path
+        - Description: Path to the ground_truth folder.
+
+    :return: 
+    - Type: int| None
+    - Description : ID of the associated Label Studio project.
+    """
+    for file in Path(ground_truth_folder).iterdir():
+        if file.is_file() and not file.name.startswith('.'):
+            project_id = open_json_file(file)["project"]
+        return project_id
+    return None
+
+def convert_gt_annotation_to_ls_task(json_file: str | Path) -> dict:
+    """
+    Converts a GT annotation file exported by LS into a format
+    importable via import_tasks() with already validated annotations.
+    """
+    data = open_json_file(json_file)
+    return {
+        "data": {
+            "image": data["task"]["data"]["image"]
+        },
+        "annotations": [
+            {
+                "result": data["result"]
+            }
+        ]
+    }    

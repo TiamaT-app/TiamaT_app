@@ -5,7 +5,7 @@ import pandas as pd
 from PIL import Image
 
 from ..modules.folders_path import *
-from ..modules.manipulate_files import change_id_and_path
+from ..modules.manipulate_files import change_ids_and_path, get_gt_project_id
 
 def create_new_ground_truth(project_folder:str | Path, yolo_model_folder:str | Path, create_groundtruth:bool) -> None:
     """
@@ -146,12 +146,14 @@ def move_correction_files_and_images(project_folder:str | Path) -> None:
             shutil.move(str(file), str(ground_truth_img_folder / file.name))
     print(f"Images moved from {eval_folder} to {ground_truth_img_folder}")
 
+    project_id = get_gt_project_id(ground_truth_folder)
+
     # Move correction files to the annotations folder
     for file in pred_cors_folder.iterdir():
         if file.is_file() and not file.name.startswith('.'):
             # Ensure unique file name
-            new_annotation = ground_truth_folder / file
             annotation_number = int(Path(file).stem)
+            new_annotation = ground_truth_folder / str(annotation_number)
 
             while new_annotation.exists():
                 annotation_number += 1
@@ -160,7 +162,7 @@ def move_correction_files_and_images(project_folder:str | Path) -> None:
             shutil.move(str(pred_cors_folder /file), str(new_annotation))
 
             # Changes the 'id' field in the JSON file to the basename of the file path
-            change_id_and_path(new_annotation)
+            change_ids_and_path(new_annotation, project_id)
             
     print(f"Annotations files corrected and moved to {str(pred_cors_folder)}")
 
