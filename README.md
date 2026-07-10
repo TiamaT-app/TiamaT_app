@@ -108,7 +108,7 @@ python3 run.py
 
 **Windows:**
 ```bash
-.venv\Scripts\activate
+env\Scripts\activate
 python3 run.py
 ```
 
