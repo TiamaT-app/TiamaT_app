@@ -1,18 +1,20 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Processing...</title>
-    <meta http-equiv="refresh" content="10;url={{ url_for('training.check_training_status') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-</head>
-<body>
-    <h1>Entraînement en cours</h1>
-    <p>Veuillez patienter</p>
-    <p>Progression : {{epoch}} epochs</p>
-    <div class="spinner">⏳</div>
-    <div style="position: static;">
-        <img src="https://gist.githubusercontent.com/aviaryan/3f7c37d7af78e5bfcb4c7efa590f9cae/raw/8957088c2e31dba6d72ce86c615cb3c7bb7f0b0c/nyan-cat.gif", style="height: 20%;">
-    </div>
+{% extends "pages/head_foot.html" %}
+{% block body %}
+<meta http-equiv="refresh" content="10;url={{ url_for('training.check_training_status') }}">
 
-</body>
-</html>
+<h1>Entraînement en cours</h1>
+<p>Veuillez patienter</p>
+<p>Progression : {{ epoch if epoch else "Initialisation..." }}</p>
+<div class="spinner">⏳</div>
+{% if epoch %}
+<progress 
+    value="{{ epoch.split('/')[0] }}" 
+    max="{{ epoch.split('/')[1] }}"
+    style="width: 80%; height: 2em;">
+</progress>
+{% endif %}
+<div style="text-align: center;">
+    <img src="{{ url_for('static', filename='nyan-cat.gif') }}" style="height: 100px;">
+</div>
+
+{% endblock %}

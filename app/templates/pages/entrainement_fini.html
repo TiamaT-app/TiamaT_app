@@ -1,9 +1,7 @@
-
-
 {% extends "pages/head_foot.html" %}
 {% block body %}
-<body>
-    <p>Entraînement terminé.</p>
+
+<p>Entraînement terminé.</p>
 <div style="display: flex; gap: 320px; justify-content: center; flex-wrap :wrap;">
     <figure style="width: 50%; margin: 0 auto; text-align: center;">
            <img src="{{ url_for('files.serve_image', filename=chemin_matrice) }}"
@@ -21,7 +19,7 @@
     {% include "partials/upload2.html" %}
 
 <p> Sinon vous pouvez : <a href="/"><button>Retourner à l'accueil</button></a></p>
-</body>
- {% endblock %}
-</html>
+
+{% endblock %}
+
 

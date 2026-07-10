@@ -1,14 +1,15 @@
 {% extends "pages/head_foot.html" %}
 {% block body %}
-<body>
+
 <div>Vous travaillez actuellement dans le projet {{project_name}}.</div>
 <div>✅ Label Studio est configuré — le projet <b>{{project_name}}_corrections</b> a été créé automatiquement avec vos images et les prédictions du modèle.</div>
 <div>Vous pouvez accéder à Label Studio pour corriger les annotations :
     <button><a href="{{ ls_url }}" target="_blank">Ouvrir Label Studio</a></button>
 </div>
+
 <div>Une fois vos corrections terminées, cliquez
     <button><a href="/evaluate_model">ICI</a></button>
     pour visualiser les performances de votre modèle.
 </div>
-</body>
+
 {% endblock %}

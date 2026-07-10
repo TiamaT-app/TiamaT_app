@@ -1,19 +1,11 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-</head>
 {% extends "pages/head_foot.html" %}
 {% block body %}
-<body>
+
 <div> Vous travaillez actuellement dans le projet {{project_name}}. </div>
     <div><img src="{{class_distibution_path}}"/>  </div>
 
 <div> Cette distribution vous convient-t-elle pour lancer l'entraînement?
    <button> <a href="/training_setup">Oui, passer à l'entrainement.</a></button> <button><a href="/">Non, retourner à l'écran d'accueil des projets</a></button>
 </div>
-</body>
+
 {% endblock %}
-</html>

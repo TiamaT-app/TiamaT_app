@@ -23,9 +23,6 @@
         }
 </style>
 
-<body>
-    
-
 <div> Vous travaillez actuellement dans le projet {{project_name}}. Uploader des images pour le projet ci dessous :</div> 
     {% include "partials/upload.html" %} 
 <div> Ce projet contient actuellement {{nbre_images}} images uploadées, parmi lesquelles :</div>
@@ -48,5 +45,4 @@
 <div> Si vous avez déjà entrainé un modèle et que vous voulez le tester ou l'appliquer, cliquez <button><a href="/test_pre_trained_model">ICI</a></button>. </div>
 <div> Pour gérer les modèles disponibles dans ce projet, cliquez <button><a href="/gestion_modeles">ICI</a></button>. </div>
 
-</body>
 {% endblock %}
