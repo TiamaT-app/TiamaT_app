@@ -1,4 +1,3 @@
-import shutil
 from pathlib import Path
 
 import numpy as np
@@ -9,7 +8,7 @@ import matplotlib.pyplot as plt
 from ..modules.folders_path import *
 from ..modules.transform_coordinates_functions import from_ls_to_yolo
 from ..modules.class_functions import get_class_name, get_class_code
-from ..modules.manipulate_files import open_json_file, save_json_file, get_files, exclude_training_images, load_data_from_files
+from ..modules.manipulate_files import open_json_file, save_json_file, exclude_training_images, load_data_from_files
 from ..modules.generate_labels import get_labels
 
 
@@ -112,56 +111,36 @@ def calculate_iou(box1:list, box2:list) -> float:
     
     return iou
 
-def get_best_iou_matches(predictions:list, corrected_predictions:list) -> list:
+def match_boxes(predictions: list, corrected_predictions: list, threshold: float = 0.5) -> tuple:
     """
-    This function finds the best matching corrected bounding box for each predicted bounding box based on 
-    the Intersection over Union (IoU) value. For each prediction, it calculates the IoU with all corrected 
-    bounding boxes and selects the one with the highest IoU as the best match.
-    
-    :param predictions: 
-        - Type: list of str
-        - Description: A list of predicted bounding boxes in YOLO format (class_id, x_center, y_center, width, height). 
-                       Each bounding box is represented as a string of space-separated values.
-    :param corrected_predictions: 
-        - Type: list of str
-        - Description: A list of corrected bounding boxes in YOLO format (class_id, x_center, y_center, width, height). 
-                       Each bounding box is represented as a string of space-separated values.
-    
-    :return: 
-        - Type: list of tuples
-        - Description: A list of tuples, where each tuple contains:
-            - The predicted bounding box (str)
-            - The best matching corrected bounding box (str) based on the highest IoU
-            - The IoU value (float) for the best match
-    
-    This function is useful for evaluating the performance of a model by comparing its predictions with manually corrected 
-    ground truth annotations, identifying the best matches based on spatial overlap.
+    Matches predicted bounding boxes with corrected ones based on class and IoU threshold.
+    Returns matched predictions, matched corrections, false positives and false negatives.
     """
-
-    # Create an empty list for the best matches
-    best_matches = []
+    matched_predictions = []
+    matched_corrections = []
 
     for prediction in predictions:
-        prediction_box = prediction.split()
-        prediction_box = [float(coord) for coord in prediction_box]
+        prediction_box = [float(coord) for coord in prediction.split()]
+
         best_iou = 0
-        best_correction = None
+        best_prediction_idx = -1
 
-        for correction in corrected_predictions:
-            correction_box = correction.split()
-            correction_box = [float(coord) for coord in correction_box]
-
+        for i, correction in enumerate(corrected_predictions):
+            correction_box = [float(coord) for coord in correction.split()]
             iou = calculate_iou(prediction_box, correction_box)
-            print(f"{iou} EST LA VALEUR DE L IOU ")
-            print(f"calculter l iou de {correction} correction, la longueur est{len(corrected_predictions)} ")
-            if iou > best_iou:
-                best_iou = iou
-                best_correction = correction
-                print("iou validé par la rue")
-        
-        best_matches.append((prediction, best_correction, best_iou))
-    
-    return best_matches
+            print(f"DEBUG iou={iou} pred_class={int(prediction_box[0])} corr_class={int(correction_box[0])}")
+            if iou > best_iou and iou >= threshold:
+                    best_iou = iou
+                    best_prediction_idx = i
+
+        if best_prediction_idx != -1:
+            matched_predictions.append(prediction)
+            matched_corrections.append(corrected_predictions[best_prediction_idx])
+
+    false_negatives = [p for p in corrected_predictions if p not in matched_corrections]
+    false_positives = [a for a in predictions if a not in matched_predictions]
+
+    return matched_predictions, matched_corrections, false_positives, false_negatives
 
 def save_results_to_csv(rows:list, output_file:str | Path) -> None:
     """
@@ -194,48 +173,19 @@ def save_results_to_csv(rows:list, output_file:str | Path) -> None:
     df_sorted.to_csv(output_file, sep=';',index=False)
     print(f"The {output_file} file has been created.")
     
-def get_csv_results(project_folder:str | Path, yolo_model_folder:str | Path, all_results:bool) -> None:
+def get_csv_results(project_folder: str | Path, yolo_model_folder: str | Path, all_results: bool) -> None:
     """
-    Generate a CSV file summarizing the evaluation of YOLO model predictions against manually corrected annotations.
-
-    Each prediction is evaluated as:
-        - TP (True Positive): correct class and IoU ≥ 0.5
-        - FP (False Positive): incorrect or unmatched prediction
-        - FP_class: correct box but wrong class (IoU ≥ 0.75)
-        - FN (False Negative): missing prediction for a corrected annotation
-
-    Parameters
-    ----------
-    project_folder : str
-        Path to the project directory.
-    
-    yolo_model_folder : str
-        Path to the folder containing the YOLO model and its associated output (e.g. labels.txt, predictions).
-
-    all_results : bool
-        If True, evaluates all predictions.
-        If False, excludes predictions from images used during training (based on training_dataset.txt).
-
-    Returns
-    -------
-    None
-        The evaluation is saved as a CSV file in the results folder under 'results/results_for_evaluation.csv'.
-
-    Notes
-    -----
-    - Uses best IoU matching between predictions and corrected labels.
-    - Assumes YOLO annotations follow standard YOLO format (class x y w h confidence).
-    - Corrected labels are expected in 'correctedLabels' folder.
+    Generate a CSV file summarizing the evaluation of YOLO model predictions
+    against manually corrected annotations using match_boxes().
     """
-
     results_folder = Path(get_results_folder(project_folder, yolo_model_folder))
     label_dict = get_labels(str(results_folder / 'labels.txt'))
 
     prediction_folder = results_folder / 'labels'
-    predictions_files = get_files(str(prediction_folder), 'txt')
+    predictions_files = list(prediction_folder.glob('*.txt'))
 
     correction_folder = results_folder / 'correctedLabels'
-    corrected_files = get_files(str(correction_folder), 'txt')
+    corrected_files = list(correction_folder.glob('*.txt'))
 
     output_file = results_folder / 'results' / 'results_for_evaluation.csv'
 
@@ -245,115 +195,94 @@ def get_csv_results(project_folder:str | Path, yolo_model_folder:str | Path, all
         corrected_files = exclude_training_images(corrected_files, img_use_for_training)
 
     rows = []
+    pred_map = {Path(p).name: Path(p) for p in predictions_files}
+    corr_map = {Path(p).name: Path(p) for p in corrected_files}
 
-    pred_map = {Path(path).name: Path(path) for path in predictions_files}
-    corr_map = {Path(path).name: Path(path) for path in corrected_files}
-    
-    
-    # Browse through all the predictions
     for basename, pred_path in pred_map.items():
-        # Retrieve the correction file if it exists
         corr_path = corr_map.get(basename)
 
-        # HIC SUNT DRACONES
-        if corr_path:
-            predictions = sorted(load_data_from_files([str(pred_path)]), key=lambda x: (float(x.split()[1]), float(x.split()[2])))
-            corrections = sorted(load_data_from_files([str(corr_path)]), key=lambda x: (float(x.split()[1]), float(x.split()[2])))
-            best_matches = get_best_iou_matches(predictions, corrections)
-            compteur=0
-            for prediction, best_correction, best_iou in best_matches:
-                
-                pred_box = list(map(float, prediction.split()))
-                cls_pred = int(pred_box[0])
-                compteur+=1
-                print(best_correction)
-                print("VOILA LE TYPE DE BEST CORRECTION" + str(type(best_correction))+f"compteur ={compteur} ")
-                cls_corr = int(best_correction.split()[0])
-
-                if best_iou >= 0.5 and cls_pred == cls_corr:
-                    tp_fp_fn = 'TP'
-                # 
-                elif best_iou >= 0.75 and cls_pred != cls_corr:
-                    tp_fp_fn = 'FP_class'
-                else:
-                    tp_fp_fn = 'FP'
-
-                if tp_fp_fn == 'FP':
-                    rows.append({
-                    'Filename': basename,
-                    'Predicted_coordinates': ', '.join(map(str, pred_box)),
-                    'Predicted_class': get_class_name(str(cls_pred), label_dict),
-                    'TP/FP/FN': tp_fp_fn,
-                    'Corrected_class': '',
-                    'Corrected_coordinates': '',
-                    'IoU': 0.0,
-                    'Confidence_score': pred_box[5] if len(pred_box) > 5 else 0.0
-                })
-                else: 
-                    rows.append({
-                        'Filename': basename,
-                        'Predicted_coordinates': ', '.join(map(str, pred_box)),
-                        'Predicted_class': get_class_name(str(cls_pred), label_dict),
-                        'TP/FP/FN': tp_fp_fn,
-                        'Corrected_class': get_class_name(str(cls_corr), label_dict),
-                        'Corrected_coordinates': best_correction,
-                        'IoU': best_iou,
-                        'Confidence_score': pred_box[5] if len(pred_box) > 5 else 0.0
-                    })
-    
-            matched_corrs = {c for _, c, _ in best_matches}
-            for corr in corrections:
-                if corr not in matched_corrs:
-                    box_corr = list(map(float, corr.split()))
-                    cls_corr = int(box_corr[0])
-                    rows.append({
-                        'Filename': basename,
-                        'Predicted_coordinates': '',
-                        'Predicted_class': '',
-                        'TP/FP/FN': 'FN',
-                        'Corrected_class': get_class_name(str(cls_corr), label_dict),
-                        'Corrected_coordinates': ', '.join(map(str, box_corr)),
-                        'IoU': 0.0,
-                        'Confidence_score': 0.0
-                    })
-
-        else:
-            # No correction file at all → all predictions can be considered FP
-            predictions = load_data_from_files([pred_path])
+        if corr_path is None:
+            # Pas de fichier de correction → toutes les prédictions sont FP
+            predictions = load_data_from_files([str(pred_path)])
             for pred in predictions:
-                box = list(map(float, pred.split()))
+                box = [float(v) for v in pred.split()]
                 cls = int(box[0])
                 rows.append({
                     'Filename': basename,
-                    'Predicted_coordinates': ', '.join(map(str, box)),
+                    'Predicted_coordinates': ' '.join(map(str, box)),
                     'Predicted_class': get_class_name(str(cls), label_dict),
                     'TP/FP/FN': 'FP',
                     'Corrected_class': '',
                     'Corrected_coordinates': '',
                     'IoU': 0.0,
-                    'Confidence_score': box[5] if len(box) > 5 else 0.0
+                    'Confidence_score': box[5] if len(box) > 5 else 0.0,
+                })
+        else:
+            predictions = load_data_from_files([str(pred_path)])
+            corrections = load_data_from_files([str(corr_path)])
+
+            matched_preds, matched_corrs, false_positives, false_negatives = match_boxes(
+                predictions, corrections, threshold=0.5
+            )
+
+            for pred, corr in zip(matched_preds, matched_corrs):
+                pred_box = [float(v) for v in pred.split()]
+                corr_box = [float(v) for v in corr.split()]
+                iou = calculate_iou(pred_box, corr_box)
+                rows.append({
+                    'Filename': basename,
+                    'Predicted_coordinates': ' '.join(map(str, pred_box)),
+                    'Predicted_class': get_class_name(str(int(pred_box[0])), label_dict),
+                    'TP/FP/FN': 'TP' if int(pred_box[0]) == int(corr_box[0]) else 'FP_class',
+                    'Corrected_class': get_class_name(str(int(corr_box[0])), label_dict),
+                    'Corrected_coordinates': corr,
+                    'IoU': iou,
+                    'Confidence_score': pred_box[5] if len(pred_box) > 5 else 0.0,
                 })
 
-    # HIC SUNT DRACONES
+            for fp in false_positives:
+                box = [float(v) for v in fp.split()]
+                rows.append({
+                    'Filename': basename,
+                    'Predicted_coordinates': ' '.join(map(str, box)),
+                    'Predicted_class': get_class_name(str(int(box[0])), label_dict),
+                    'TP/FP/FN': 'FP',
+                    'Corrected_class': '',
+                    'Corrected_coordinates': '',
+                    'IoU': 0.0,
+                    'Confidence_score': box[5] if len(box) > 5 else 0.0,
+                })
 
-    # Process *orphan* corrections (without associated predictions)
-    for basename, corr_path in corr_map.items():
-        if basename not in pred_map:
-            corrections = load_data_from_files([corr_path])
-            for corr in corrections:
-                box = list(map(float, corr.split()))
-                cls = int(box[0])
+            for fn in false_negatives:
+                box = [float(v) for v in fn.split()]
                 rows.append({
                     'Filename': basename,
                     'Predicted_coordinates': '',
                     'Predicted_class': '',
                     'TP/FP/FN': 'FN',
-                    'Corrected_class': get_class_name(str(cls), label_dict),
-                    'Corrected_coordinates': ', '.join(map(str, box)),
+                    'Corrected_class': get_class_name(str(int(box[0])), label_dict),
+                    'Corrected_coordinates': ' '.join(map(str, box)),
                     'IoU': 0.0,
-                    'Confidence_score': 0.0
+                    'Confidence_score': 0.0,
                 })
-    
+
+    # Corrections orphelines (pas de prédiction associée)
+    for basename, corr_path in corr_map.items():
+        if basename not in pred_map:
+            corrections = load_data_from_files([str(corr_path)])
+            for corr in corrections:
+                box = [float(v) for v in corr.split()]
+                rows.append({
+                    'Filename': basename,
+                    'Predicted_coordinates': '',
+                    'Predicted_class': '',
+                    'TP/FP/FN': 'FN',
+                    'Corrected_class': get_class_name(str(int(box[0])), label_dict),
+                    'Corrected_coordinates': ' '.join(map(str, box)),
+                    'IoU': 0.0,
+                    'Confidence_score': 0.0,
+                })
+
     save_results_to_csv(rows, output_file)
 
 def get_txt_results(project_folder:str | Path, yolo_model_folder:str | Path) -> Path:
