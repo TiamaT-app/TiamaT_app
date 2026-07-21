@@ -54,7 +54,9 @@ def _setup_ls_in_background(project_name: str, chemin_images, chemin_labels) -> 
 @labeling_bp.route("/label_lancement",methods=['GET', 'POST'])
 def consignes() :
     if os.environ.get('LABEL_STUDIO_API_TOKEN') is None:
-        launch_LS2()
+        thread = Thread(target=launch_LS2) 
+        thread.daemon = True
+        thread.start()
         form = LsToken()
         return render_template("/pages/ajout_ls_token.html", form=form)
     else:
