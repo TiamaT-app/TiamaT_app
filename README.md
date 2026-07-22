@@ -116,6 +116,13 @@ TiamaT will open in your browser at `http://127.0.0.1:5001`
 
 ---
 
+## 🌐 Language
+
+The interface is currently available in French only. 
+An English version is planned for a future release.
+
+---
+
 ## License & Attribution
 
 Any use, even partial, of the content in this repository must be accompanied by proper citation.
