@@ -1,17 +1,21 @@
 {% extends "pages/head_foot.html" %}
 {% block body %}
 
-     <figure style="width: 50%; margin: 0 auto; text-align: center;">
+<p>Résultats d'évaluation du modèle</p>
+<div style="display: flex; gap: 2%; justify-content: center; flex-wrap: wrap;">
+   <figure style="text-align: center; max-width: 45%;">
         <img src="{{ url_for('files.serve_image2', relpath=matrix_path) }}"
-        style="max-width: 30%; height: auto; display: block; margin: 0;">
+        style="width: 100%; height: auto;">
            <figcaption>Matrice de confusion</figcaption>
         </figure>
-        <figure style="width: 50%; margin: 0 auto; text-align: center;">
+        <figure style="text-align: center; max-width: 45%;">
         <img src="{{ url_for('files.serve_image2', relpath=png_path) }}"
-        style="max-width: 30%; height: auto; display: block; margin: 0;">
-           <figcaption>stats</figcaption>
+        style="width: 100%; height: auto;">
+           <figcaption>Métriques d'évaluation</figcaption>
         </figure>
-        Pour ajouter les images corrigées au jeu d'entrainement, cliquez <button><a href="/dispatch_corrections">ICI</a></button>
-        
+</div>
+
+<p>Pour ajouter les images corrigées au jeu d'entrainement, cliquez <button><a href="/dispatch_corrections">ICI</a></button></p>
+
 
  {% endblock %}

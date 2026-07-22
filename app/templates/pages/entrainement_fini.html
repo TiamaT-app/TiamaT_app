@@ -2,15 +2,15 @@
 {% block body %}
 
 <p>Entraînement terminé.</p>
-<div style="display: flex; gap: 320px; justify-content: center; flex-wrap :wrap;">
-    <figure style="width: 50%; margin: 0 auto; text-align: center;">
+<div style="display: flex; gap: 2%; justify-content: center; flex-wrap :wrap;">
+    <figure style="text-align: center; max-width: 45%;">
            <img src="{{ url_for('files.serve_image', filename=chemin_matrice) }}"
-           style="max-width: 30%; height: auto; display: block; margin: 0 auto;">
+           style="width: 100%; height: auto;">
            <figcaption>Matrice de confusion des résultats du modèle sur le jeu de validation</figcaption>
         </figure>
-    <figure style="width: 50%; margin: 0 auto; text-align: center;">
+    <figure style="text-align: center; max-width: 45%;">
         <img src="{{ url_for('files.serve_image', filename=chemin_val_batch) }}"
-        style="max-width: 30%; height: auto; display: block; margin: 0 auto;">
+        style="width: 100%; height: auto;">
            <figcaption>Détections sur une sélection d'images du jeu de validation</figcaption>
         </figure>
 </div>

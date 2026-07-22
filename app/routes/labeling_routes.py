@@ -32,7 +32,7 @@ def _setup_ls_in_background(project_name: str, chemin_images, chemin_labels) -> 
     """
 
     from app.services.label_studio_api_service import setup_label_studio_project
-    labels_file = projects_folder / project_name / "data" / "labels.txt"
+    labels_file = Path.cwd() / "data" / project_name / "labels.txt"
 
     try:
         print(f"DEBUG token : '{os.environ.get('LABEL_STUDIO_API_TOKEN')}'")
