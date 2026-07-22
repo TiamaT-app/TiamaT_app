@@ -166,12 +166,20 @@ def save_results_to_csv(rows:list, output_file:str | Path) -> None:
     """
 
     if not rows:
-        print('No correction made')
-        return
+        print('No correction made — creating empty CSV')
+        df = pd.DataFrame(columns=[
+            'Filename', 'Predicted_coordinates', 'Predicted_class',
+            'TP/FP/FN', 'Corrected_class', 'Corrected_coordinates',
+            'IoU', 'Confidence_score'
+        ])
+        df.to_csv(output_file, sep=';', index=False)
+        return output_file  # type: ignore
+    
     df = pd.DataFrame(rows)
     df_sorted = df.sort_values('Filename')
     df_sorted.to_csv(output_file, sep=';',index=False)
     print(f"The {output_file} file has been created.")
+    return output_file #type: ignore
     
 def get_csv_results(project_folder: str | Path, yolo_model_folder: str | Path, all_results: bool) -> None:
     """
@@ -197,6 +205,9 @@ def get_csv_results(project_folder: str | Path, yolo_model_folder: str | Path, a
     rows = []
     pred_map = {Path(p).name: Path(p) for p in predictions_files}
     corr_map = {Path(p).name: Path(p) for p in corrected_files}
+    print(f"DEBUG correction_folder : {correction_folder}")
+    print(f"DEBUG pred_map : {list(pred_map.keys())}")
+    print(f"DEBUG corr_map : {list(corr_map.keys())}")
 
     for basename, pred_path in pred_map.items():
         corr_path = corr_map.get(basename)
@@ -282,6 +293,7 @@ def get_csv_results(project_folder: str | Path, yolo_model_folder: str | Path, a
                     'IoU': 0.0,
                     'Confidence_score': 0.0,
                 })
+
 
     save_results_to_csv(rows, output_file)
 
@@ -535,7 +547,7 @@ def reformated_decimal(tp:int, fn:int, recall_class:float, precision_class:float
     
     return recall_formated, precision_formated, f1_score_formated
 
-def create_confusion_matrix(project_folder:str | Path, yolo_model_folder:str | Path) -> Path:
+def create_confusion_matrix(project_folder:str | Path, yolo_model_folder:str | Path) -> Path | None:
     """
     Generate and save a confusion matrix from YOLO prediction results.
 
@@ -578,6 +590,8 @@ def create_confusion_matrix(project_folder:str | Path, yolo_model_folder:str | P
     
     # Open the csv with results
     results = pd.read_csv(csv_with_results, sep=';')
+    if results.empty:
+        return None  # type: ignore
 
     # Replace the NaN results with 'Background', the class will be used to show the FP and FN
     predictions = results['Predicted_class'].fillna('Background')

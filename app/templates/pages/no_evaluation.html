@@ -1,0 +1,14 @@
+{% extends "pages/head_foot.html" %}
+{% block body %}
+<div>Vous travaillez actuellement dans le projet <b>{{project_name}}</b>.</div>
+<div>⚠️ Aucune évaluation n'a pu être générée.</div>
+<div>Cela peut être dû à deux raisons :
+    <ul>
+        <li>Le modèle n'a détecté aucun objet sur les images testées et aucune correction n'a été faite.</li>
+        <li>Les images utilisées pour l'évaluation sont les mêmes que celles utilisées pour l'entraînement — les résultats ne seraient pas représentatifs.</li>
+    </ul>
+</div>
+<div>Pour obtenir une évaluation pertinente, testez votre modèle sur de nouvelles images :
+    <button><a href="/test_pre_trained_model">Tester de nouvelles images</a></button>
+</div>
+{% endblock %}

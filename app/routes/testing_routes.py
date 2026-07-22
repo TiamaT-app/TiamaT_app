@@ -51,7 +51,6 @@ def test_upload():
 
 
 
-
 #la route ci dessous récupère des images pour tester le modèle et fait passer le modèle dessus
 @testing_bp.route("/test_end", methods=['GET', 'POST'])
 def test_end():
@@ -108,17 +107,24 @@ def evaluate_model():
     
     # Update YOLO label definitions with new classes found in prediction correction files 
     add_new_labels(project_folder, yolo_model_folder)
+
     # Generate the corrected files in YOLO format
     get_corrected_label_files(project_folder, yolo_model_folder)
+
     # Generate a CSV with the corrected data
     get_csv_results(project_folder, yolo_model_folder, all_results=False)
+
     # Generate the file with metrics
     png_path = get_txt_results(project_folder, yolo_model_folder)
     png_path = png_path.relative_to(Path.cwd())
 
     # Generate the confusion matrix
     matrix_path = create_confusion_matrix(project_folder, yolo_model_folder)
+    if matrix_path is None:
+        return render_template("/pages/no_evaluation.html", project_name=project_name)
+
     matrix_path = matrix_path.relative_to(Path.cwd())
+    
     return render_template(
         "/pages/model_evaluation.html", 
         project_name=project_name, 
