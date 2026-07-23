@@ -32,14 +32,14 @@ def upload():
     configure_uploads(app, images_uploadees)
     
     if form.validate_on_submit():
-        files2=[]
+        list_img = []
         for fichier in form.fichiers.data:
             images_uploadees.save(fichier)
-            files2.append(fichier.filename)
+            list_img.append(fichier.filename)
         # Get the list of files from webpage
-        files2 = str(files2[0] + f" et {len(files2)-1} autre images")
+        files2 = f"Vos {len(list_img)} images"
         
-        liste_images, liste_noms, nbre_images = get_preview_images(chemin_images)
+        liste_images, liste_noms, _ = get_preview_images(chemin_images)
 
         return render_template(
             "/pages/upload_full.html", 
