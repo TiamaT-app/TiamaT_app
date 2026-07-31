@@ -362,7 +362,7 @@ def create_training_dataset(project_folder:str | Path, pretrained_model:str | No
 
 def split_data_for_training(img_list:str, labels_folder:str, output_img_folder:str, output_labels_folder:str) -> None:
     """
-    Organizes images and annotation files into the appropriate YOLOv8 train/val subdirectories.
+    Organizes images and annotation files into the appropriate YOLO train/val subdirectories.
 
     Parameters
     ----------
@@ -416,7 +416,7 @@ def split_data_for_training(img_list:str, labels_folder:str, output_img_folder:s
 
 def write_yaml_file(project_folder:str | Path) -> None:
     """
-    Creates a `.yaml` configuration file for YOLOv8 training, specifying:
+    Creates a `.yaml` configuration file for YOLO training, specifying:
     - Dataset path
     - Train and validation folder structure
     - Class label mapping from `labels.txt`
@@ -477,7 +477,7 @@ def yolo_training(project_folder:str | Path, use_model:str, img_size:int,
 
     :param use_model: 
         - Type: str
-        - Description: The YOLO model architecture to use for training (e.g., 'yolo11x.pt'). 
+        - Description: The YOLO model architecture to use for training (e.g., 'yolo26s.pt'). 
                        If a pre-trained model is provided, this parameter is overridden.
 
     :param img_size: 
@@ -706,7 +706,7 @@ def training(project_folder:str | Path, nombre_epoch:int, dropout:float, model:s
     create_training_dataset(project_folder, model, preexisting_distribution=False)
 
 #Config du réentraînement
-    use_model = model # to be changed as needed, by default use 'yolov11x.pt'
+    use_model = model # to be changed as needed, by default use 'yolo26s.pt'
     img_size = 640 # to be changed as needed, by default use 640
     epochs = nombre_epoch # to be changed as needed
     batch = -1 # to be changed as needed, by default use 8 or or -1 for AutoBatch
