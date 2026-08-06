@@ -106,7 +106,15 @@ def gestion_modeles():
 
     if (Path("projects")/project_name/f"{project_name}.csv").is_file():
         df = pd.read_csv(Path("projects")/project_name/f"{project_name}.csv")
-        return render_template("pages/gestion_modeles.html", tables=[df.to_html(classes='data')], titles=df.columns.values, nom_projet = project_name, form = form)
+        liste_urls =[] 
+        for index, row in df.iterrows():
+                        path_model = Path.cwd()/"output"/"train"/row["model_name"]/ "weights"/"best.pt"
+                        if os.path.isfile(path_model):
+                            liste_urls.append(f'<a href="/download/{path_model}" class="btn btn-primary btn-sm">Download</a>')
+                        else:
+                            liste_urls.append(f"Erreur avec le modèle {row['model_name']}")
+        df["urls"]= liste_urls 
+        return render_template("pages/gestion_modeles.html", tables=[df.to_html(classes='data', escape=False)], titles=df.columns.values, nom_projet = project_name, form = form)
 
     else:
         return render_template("pages/gestion_modele2.html", form=form)

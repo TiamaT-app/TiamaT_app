@@ -25,3 +25,4 @@ def download(filepath):
     if not Path.is_absolute(Path(filepath)):
         filepath='/'+filepath
     return send_file(filepath, as_attachment=True)
+

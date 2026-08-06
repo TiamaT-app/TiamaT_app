@@ -14,6 +14,7 @@ from app.services.config_service import load_current_project
 from app.services.project_service import projects_folder
 from app.services.image_service import get_preview_images
 
+
 upload_bp = Blueprint("upload", __name__)
 
 
@@ -87,8 +88,16 @@ def upload_modele():
             with open (Path("output")/"train"/model_name/ "labels.txt", "w") as f:
                 for key, val in (YOLO((Path("output")/"train"/model_name/"weights"/"best.pt")).names).items() :
                     f.write(f"'{key}': '{val}'\n")
-        
-            return render_template("pages/gestion_modeles.html", tables=[df.to_html(classes='data')], titles=df.columns.values, nom_projet = project_name, form = form)
+            liste_urls =[] 
+            for index, row in df.iterrows():
+                path_model = Path.cwd()/"output"/"train"/row["model_name"]/ "weights"/"best.pt"
+                if os.path.isfile(path_model):
+                    liste_urls.append(f'<a href="/download/{path_model}" class="btn btn-primary btn-sm">Download</a>')
+                else:
+                    liste_urls.append(f"Erreur avec le modèle {row['model_name']}")
+            df["urls"]= liste_urls 
+            
+            return render_template("pages/gestion_modeles.html", tables=[df.to_html(classes='data', escape=False)], titles=df.columns.values, nom_projet = project_name, form = form)
     else:
         flash("Problème avec le formulaire.")
         return redirect(url_for('project.gestion_modeles'))
