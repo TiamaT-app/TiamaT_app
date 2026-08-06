@@ -15,6 +15,8 @@ historique, non utilise dans ce fichier.
 
 from pathlib import Path
 import os
+import shutil
+import re
 
 from flask import Blueprint , render_template, flash, redirect, url_for
 import pandas as pd
@@ -118,4 +120,24 @@ def gestion_modeles():
 
     else:
         return render_template("pages/gestion_modele2.html", form=form)
-    
+
+@project_bp.route("/suppression_projet_check", methods=["GET", "POST"])
+def check_projet():
+      project_name = load_current_project()
+      return render_template("pages/supression_projet_check.html", project_name=project_name)
+
+@project_bp.route("/supression_projet", methods=["GET", "POST"])
+def suppression_projet():
+      project_name = load_current_project()
+      project_models = (pd.read_csv(Path.cwd()/ "projects"/ project_name / f"{project_name}.csv")["model_name"]).tolist()
+      for i in project_models:
+            shutil.rmtree(Path.cwd()/"output"/ "train"/ i)
+            for z in os.listdir(Path.cwd()/'output'/"predict"):
+                if re.match(rf'^{re.escape(i)}_{re.escape(i)}_\d{{8}}_\d{{6}}$', z):
+                      shutil.rmtree(Path.cwd()/'output'/"predict"/z)
+                else:
+                      pass
+      shutil.rmtree(Path.cwd()/"data"/project_name)
+      shutil.rmtree(Path.cwd()/"projects"/project_name)
+      flash(f"Projet {project_name} supprimé. ")
+      return redirect(url_for('project.accueil'))
