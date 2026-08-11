@@ -72,14 +72,15 @@ def upload_modele():
         else:
             os.makedirs((Path("output")/"train"/model_name))
             os.makedirs((Path("output")/"train"/model_name/"weights"))
-
+            fichier = form.model.data
+            fichier.save((Path("output")/"train"/model_name/"weights"/"best.pt"))
             if (Path("projects")/project_name/f"{project_name}.csv").is_file():
                 df = pd.read_csv(Path("projects")/project_name/f"{project_name}.csv")
-                dico = {"use_model": "?", "model_name": model_name, "img_size": "?" , "epochs": "?", "batch": "?", "workers": "?", "dropout": "?", "origine": "import"}
+                dico = {"model_name": model_name, "use_model": "?", "img_size": "?" , "epochs": "?", "batch": "?", "workers": "?", "dropout": "?", "origine": "import", "classes": YOLO(Path("output")/"train"/model_name/"weights"/"best.pt").names }
                 df.loc[len(df)] = dico
                 df.to_csv(Path("projects")/project_name/f"{project_name}.csv", index =False)
             else :
-                dico = {"use_model": "?", "model_name": model_name, "img_size": "?" , "epochs": "?", "batch": "?", "workers": "?", "dropout": "?", "origine": "import"}
+                dico = {"model_name": model_name, "use_model": "?", "img_size": "?" , "epochs": "?", "batch": "?", "workers": "?", "dropout": "?", "origine": "import", "classes": YOLO(Path("output")/"train"/model_name/"weights"/"best.pt").names }
                 df = pd.DataFrame(dico, index=[0])
                 df.to_csv(Path("projects")/project_name/f"{project_name}.csv", index = False)
             fichier = form.model.data
