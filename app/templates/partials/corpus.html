@@ -91,5 +91,14 @@
 </section>
 
 <div class="page actions actions--centre">
-  {{ ui.bouton("Supprimer le projet", href=url_for('project.check_projet'), variante="noir", fleche=true) }}
+  <button type="button" class="bouton bouton--noir bouton--fleche" data-ouvrir-dialogue="suppression-projet">Supprimer le projet</button>
+  <dialog id="suppression-projet" class="panneau panneau--creme dialogue-confirmation">
+    <p class="etiquette">Suppression</p>
+    <h2>Supprimer {{ project_name }} ?</h2>
+    <p>Les images, les annotations et les modèles de ce projet seront supprimés définitivement.</p>
+    <div class="actions">
+      <button type="button" class="bouton bouton--doux" data-fermer>Annuler</button>
+      <a class="bouton bouton--rouge" href="{{ url_for('project.suppression_projet') }}">Supprimer définitivement</a>
+    </div>
+  </dialog>
 </div>

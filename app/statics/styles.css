@@ -591,6 +591,12 @@ html[data-vue="projets"] .vue-accueil { display: none; }
 .hero .marque .glyphe { --glyphe: var(--ocre); }
 .actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.75rem; }
 .actions--centre { justify-content: center; }
+
+/* Boîte de confirmation (balise dialog) */
+.dialogue-confirmation { border: 0; margin: auto; max-width: min(28rem, calc(100vw - 2rem)); }
+.dialogue-confirmation::backdrop { background: rgb(18 15 5 / 0.6); }
+.dialogue-confirmation h2 { text-wrap: balance; }
+.dialogue-confirmation .actions { margin-top: 1.25rem; }
 .hero__corps > .glyphe {
   --glyphe: var(--ocre);
   width: min(24rem, 100%);

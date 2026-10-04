@@ -130,3 +130,16 @@
     }).catch(function () {});
   }, delai);
 })();
+
+/* Boîte de confirmation : un bouton avec data-ouvrir-dialogue ouvre la balise dialog dont l'id
+   est indiqué ; un élément avec data-fermer la referme. */
+(function () {
+  document.querySelectorAll('[data-ouvrir-dialogue]').forEach(function (bouton) {
+    var dialogue = document.getElementById(bouton.getAttribute('data-ouvrir-dialogue'));
+    if (!dialogue || !dialogue.showModal) return;
+    bouton.addEventListener('click', function () { dialogue.showModal(); });
+    dialogue.querySelectorAll('[data-fermer]').forEach(function (el) {
+      el.addEventListener('click', function () { dialogue.close(); });
+    });
+  });
+})();
