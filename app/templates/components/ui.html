@@ -1,0 +1,71 @@
+{# Composants d'interface réutilisables. Usage : {% import "components/ui.html" as ui %} #}
+
+{# Bouton : lien si href est fourni, sinon bouton de formulaire.
+   variante : '' (accent), 'doux' (secondaire), 'bleu', 'vert', 'orange', 'rouge', 'noir'
+   actif    : false = bouton grisé, non cliquable (lien uniquement)
+   attente  : texte affiché pendant un traitement long (géré par app.js)
+   fleche   : ajoute une flèche après le libellé #}
+{% macro bouton(libelle, href=none, variante='', type='submit', actif=true, attente=none, fleche=false) %}
+{% set classes = 'bouton' ~ ((' bouton--' ~ variante) if variante else '') ~ (' bouton--fleche' if fleche else '') ~ ('' if actif else ' bouton--inactif') %}
+{% if href and actif %}
+<a class="{{ classes }}" href="{{ href }}"{% if attente %} data-attente="{{ attente }}"{% endif %}>{{ libelle }}</a>
+{% elif href %}
+<span class="{{ classes }}" aria-disabled="true">{{ libelle }}</span>
+{% else %}
+<button class="{{ classes }}" type="{{ type }}"{% if attente %} data-attente="{{ attente }}"{% endif %}>{{ libelle }}</button>
+{% endif %}
+{% endmacro %}
+
+{# Retour à la page Corpus du projet. La route /accueil_projet n'accepte qu'un envoi de
+   formulaire (POST) avec jeton CSRF : app.js récupère un jeton frais avant l'envoi. #}
+{% macro vers_corpus(nom_projet, libelle, variante='') %}
+<form class="form-ligne" action="/accueil_projet" method="POST" enctype="multipart/form-data" data-csrf-auto>
+  <input type="hidden" name="csrf_token" value="">
+  <input type="hidden" name="nom" value="">
+  <input type="hidden" name="projet_existant" value="{{ nom_projet }}">
+  {{ bouton(libelle, variante=variante, attente="Chargement…") }}
+</form>
+{% endmacro %}
+
+{# Champ WTForms : étiquette, champ, aide et erreurs. Les kwargs vont au champ. #}
+{% macro champ(field, libelle=none, aide=none) %}
+<div class="champ">
+  <label for="{{ field.id }}">{{ libelle or field.label.text }}</label>
+  {{ field(**kwargs) }}
+  {% if aide %}<p class="champ__aide">{{ aide }}</p>{% endif %}
+  {% for erreur in field.errors %}<p class="champ__erreur">{{ erreur }}</p>{% endfor %}
+</div>
+{% endmacro %}
+
+{# Page d'attente commune (entraînement, inférence) : rafraîchissement automatique après
+   `delai` secondes vers `url_suivant`. epoch (optionnel, "3/10") affiche une progression réelle
+   ; sans lui, seule l'animation indique que quelque chose se passe. #}
+{% macro attente(titre, texte, url_suivant, delai, epoch=none) %}
+<meta http-equiv="refresh" content="{{ delai }};url={{ url_suivant }}">
+<section class="attente">
+  <div class="page">
+    <p class="etiquette">Veuillez patienter</p>
+    <h1>{{ titre }}</h1>
+    <p class="chapo">{{ texte }}</p>
+    <img class="attente__gif" src="{{ url_for('static', filename='toothless-dance.gif') }}" alt="" aria-hidden="true">
+    {% if epoch %}
+    <div class="attente__barre">
+      <progress value="{{ epoch.split('/')[0] }}" max="{{ epoch.split('/')[1] }}"></progress>
+    </div>
+    <p class="attente__progres">Époque {{ epoch }}</p>
+    {% endif %}
+  </div>
+</section>
+{% endmacro %}
+
+{# Paramètre libre en deux colonnes (champ HTML hors WTForms) : texte/aide à gauche, champ
+   fourni par {% call %} à droite. À placer dans un conteneur ".reglages" (grille 2 colonnes). #}
+{% macro parametre(id, libelle, aide=none) %}
+<div class="parametre">
+  <div class="parametre__texte">
+    <label for="{{ id }}">{{ libelle }}</label>
+    {% if aide %}<p class="champ__aide">{{ aide }}</p>{% endif %}
+  </div>
+  <div class="parametre__champ">{{ caller() }}</div>
+</div>
+{% endmacro %}

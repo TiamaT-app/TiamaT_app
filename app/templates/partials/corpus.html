@@ -1,0 +1,95 @@
+{% import "components/ui.html" as ui %}
+{# Page Corpus, commune à /accueil_projet (import_images.html) et /upload (upload_full.html).
+   Variables : project_name, liste_images (liste, ou message si dossier vide), liste_noms,
+   nbre_images (absent après un envoi), files2 (présent après un envoi seulement).
+   Trois zones : bannière (fond orange, panneau d'import bleu), visionneuse (bande beige clair pleine
+   largeur), suite (fond orange). Fond, en-tête et pied orange : sol_page et bande_page dans les gabarits. #}
+{% set a_des_images = liste_images is iterable and liste_images is not string %}
+{% set total = nbre_images if nbre_images is defined else none %}
+
+<div class="page corpus-haut">
+  <div class="entete-deux-colonnes entete-deux-colonnes--centre">
+    <div class="entete-page">
+      <div>
+        <p class="etiquette">Étape 1 &middot; Corpus</p>
+        <h1>{{ project_name }}</h1>
+        <p class="chapo">Rassemblez les images du corpus, puis lancez l'annotation.</p>
+        {% if files2 is defined %}
+        {# Le total du projet n'est pas transmis par la route d'envoi : app.js le complète (data-total-projet). #}
+        <p class="confirmation" role="status">{{ files2 }} ont bien été ajoutées au projet.<span data-total-projet data-projet="{{ project_name }}"></span></p>
+        {% endif %}
+      </div>
+    </div>
+    {% include "partials/upload.html" %}
+  </div>
+</div>
+
+<section class="bande-galerie" aria-labelledby="titre-galerie" data-total="{{ total if total is not none else '' }}">
+  <div class="galerie-tete">
+    <h2 id="titre-galerie">Aperçu du corpus</h2>
+    {% if a_des_images %}
+    <p>
+      {% if total is not none and total <= liste_images|length %}
+      {{ total }} image{{ '' if total == 1 else 's' }} dans le projet
+      {% elif total is not none %}
+      {{ liste_images|length }} images tirées au hasard sur {{ total }}
+      {% else %}
+      {{ liste_images|length }} images tirées au hasard<span data-total-galerie data-affiche="{{ liste_images|length }}"></span>
+      {% endif %}
+    </p>
+    {% endif %}
+  </div>
+  {% if a_des_images %}
+  <div class="galerie" tabindex="0" role="region" aria-label="Aperçu des images du corpus">
+    {% for chemin in liste_images %}
+    <figure>
+      <img src="{{ url_for('files.serve_image', filename=chemin) }}" alt="{{ liste_noms[loop.index0] }}" loading="lazy">
+      <figcaption title="{{ liste_noms[loop.index0] }}">{{ liste_noms[loop.index0] }}</figcaption>
+    </figure>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="vide">Ce projet ne contient pas encore d'images. Ajoutez-en pour commencer.</p>
+  {% endif %}
+</section>
+
+<section class="page suite" aria-labelledby="titre-suite">
+  <h2 id="titre-suite">Ensuite</h2>
+  <div class="cartes">
+
+    <article class="panneau panneau--creme carte">
+      <p class="etiquette">Annotation</p>
+      <h3>Annoter le corpus</h3>
+      <p>Lance Label Studio et prépare le projet : vous y dessinez les boîtes autour des éléments à détecter.</p>
+      <div class="carte__actions">
+        {% if not a_des_images %}<p class="carte__note">Ajoutez d'abord des images.</p>{% endif %}
+        {{ ui.bouton("Lancer Label Studio", href=url_for('labeling.consignes'), variante="bleu", actif=a_des_images, attente="Lancement en cours…", fleche=true) }}
+      </div>
+    </article>
+
+    <article class="panneau panneau--creme carte">
+      <p class="etiquette">Dataset</p>
+      <h3>Annotations terminées</h3>
+      <p>Quand vos annotations sont enregistrées dans Label Studio, TiamaT calcule la répartition des classes. Le calcul peut prendre un moment.</p>
+      <div class="carte__actions">
+        {% if not a_des_images %}<p class="carte__note">Ajoutez d'abord des images.</p>{% endif %}
+        {{ ui.bouton("Analyser les annotations", href=url_for('statistics.dataset_statistics'), variante="vert", actif=a_des_images, attente="Analyse en cours…", fleche=true) }}
+      </div>
+    </article>
+
+    <article class="panneau panneau--creme carte">
+      <p class="etiquette">Modèles</p>
+      <h3>Modèles déjà entraînés</h3>
+      <p>Testez un modèle existant sur de nouvelles images, ou consultez les modèles de ce projet.</p>
+      <div class="carte__actions">
+        {{ ui.bouton("Tester un modèle", href=url_for('testing.test_pretrained'), variante="orange", fleche=true) }}
+        {{ ui.bouton("Importer un modèle", href=url_for('project.gestion_modeles'), variante="rouge", fleche=true) }}
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<div class="page actions actions--centre">
+  {{ ui.bouton("Supprimer le projet", href=url_for('project.check_projet'), variante="noir", fleche=true) }}
+</div>

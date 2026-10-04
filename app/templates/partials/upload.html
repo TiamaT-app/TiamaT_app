@@ -1,8 +1,16 @@
-<body>
-    <form action = "/upload" method="POST" enctype="multipart/form-data">
-        {{ form.hidden_tag() }}
-            {{ form2.fichiers(class_="form-control", placeholder_="fichiers") }}
-
-        <input type = "submit" value="Upload">
-    </form>
-</body>
+{% import "components/ui.html" as ui %}
+{# Envoi d'images du corpus : POST /upload. Le jeton CSRF vient de `form`, le champ fichiers de `form2`. #}
+<section class="panneau panneau--bleu envoi" aria-labelledby="titre-envoi">
+  <h2 id="titre-envoi">Ajouter des images</h2>
+  <form action="/upload" method="POST" enctype="multipart/form-data" data-envoi>
+    {{ form.hidden_tag() }}
+    <div class="envoi__choix">
+      {{ form2.fichiers(class_="sr-seulement", required=True, accept="image/*") }}
+      <label class="bouton bouton--creme" for="{{ form2.fichiers.id }}">Choisir des images</label>
+      <span class="envoi__etat" data-selection aria-live="polite">Aucune image choisie</span>
+    </div>
+    <ul class="envoi__liste" data-liste aria-label="Images choisies" hidden></ul>
+    {% for erreur in form2.fichiers.errors %}<p class="champ__erreur">{{ erreur }}</p>{% endfor %}
+    {{ ui.bouton("Envoyer au projet", attente="Envoi en cours…") }}
+  </form>
+</section>

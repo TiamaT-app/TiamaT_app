@@ -1,8 +1,12 @@
-<body>
-    <form action = "/test_modele" method="POST" enctype="multipart/form-data">
-        {{ form2.hidden_tag() }}
-            {{ form2.fichiers(class_="form-control", placeholder_="fichiers") }}
-
-        <input type = "submit" value="Upload">
-    </form>
-</body>
+{% import "components/ui.html" as ui %}
+{# Envoi d'images pour tester le modèle : POST /test_modele. #}
+<form action="/test_modele" method="POST" enctype="multipart/form-data" data-envoi>
+  {{ form2.hidden_tag() }}
+  <div class="envoi__choix">
+    {{ form2.fichiers(class_="sr-seulement", required=True, accept="image/*") }}
+    <label class="bouton bouton--creme" for="{{ form2.fichiers.id }}">Choisir des images</label>
+    <span class="envoi__etat" data-selection aria-live="polite">Aucune image choisie</span>
+  </div>
+  <ul class="envoi__liste" data-liste aria-label="Images choisies" hidden></ul>
+  {{ ui.bouton("Tester le modèle", attente="Envoi en cours…") }}
+</form>

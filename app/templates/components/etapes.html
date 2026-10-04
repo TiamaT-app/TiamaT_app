@@ -1,0 +1,39 @@
+{# Les huit étapes du cycle : source unique pour le bandeau, l'introduction et les couleurs.
+   couleur : couleur propre à l'étape, reprise sur toutes les pages (soulignement du bandeau, panneau .panneau--etape).
+            Jamais deux voisines bleu / vert (ni en ligne, ni à quatre de distance dans la grille de l'introduction).
+   bande   : couleur principale (bleu ou vert) du haut et du bas de page.
+   url     : destination sûre en GET pour revenir à l'étape (none = non navigable). #}
+{% set ETAPES = [
+  {'n': 1, 'rom': 'I',    'nom': 'Corpus',       'couleur': 'bleu',   'bande': 'bleu', 'outil': none,           'url': none,
+   'desc': "Importer les images du corpus dans le projet."},
+  {'n': 2, 'rom': 'II',   'nom': 'Annotation',   'couleur': 'orange',  'bande': 'bleu', 'outil': 'Label Studio', 'url': '/label_lancement',
+   'desc': "Dessiner les boîtes englobantes autour des éléments à détecter."},
+  {'n': 3, 'rom': 'III',  'nom': 'Dataset',      'couleur': 'vert',   'bande': 'vert', 'outil': none,           'url': '/dataset_statistics',
+   'desc': "Vérifier la distribution des classes avant l'entraînement."},
+  {'n': 4, 'rom': 'IV',   'nom': 'Entraînement', 'couleur': 'rouge',  'bande': 'vert', 'outil': 'YOLO',         'url': '/training_setup',
+   'desc': "Configurer et lancer l'entraînement du modèle."},
+  {'n': 5, 'rom': 'V',    'nom': 'Inférence',    'couleur': 'bleu',   'bande': 'bleu', 'outil': 'YOLO',         'url': '/test_pre_trained_model',
+   'desc': "Appliquer le modèle à de nouvelles images."},
+  {'n': 6, 'rom': 'VI',   'nom': 'Correction',   'couleur': 'ocre',   'bande': 'bleu', 'outil': 'Label Studio', 'url': none,
+   'desc': "Corriger les prédictions du modèle."},
+  {'n': 7, 'rom': 'VII',  'nom': 'Évaluation',   'couleur': 'vert',   'bande': 'vert', 'outil': none,           'url': none,
+   'desc': "Mesurer la qualité du modèle : matrice de confusion et métriques."},
+  {'n': 8, 'rom': 'VIII', 'nom': 'Bouclage',     'couleur': 'orange',  'bande': 'vert', 'outil': none,           'url': none,
+   'desc': "Ajouter les images corrigées à la vérité terrain et recommencer."}
+] %}
+
+{# Bandeau navigable. actif : numéro de l'étape courante (0 = aucune).
+   Seules les étapes déjà passées et sûres à rouvrir sont des liens. #}
+{% macro bandeau(actif) %}
+<nav class="etapes" aria-label="Étapes du cycle">
+  <ol class="etapes__liste">
+    {% for e in ETAPES %}
+    {% set etat = 'neutre' if actif == 0 else ('faite' if e.n < actif else ('courante' if e.n == actif else 'a-venir')) %}
+    {% set balise = 'a' if (etat == 'faite' and e.url) else 'span' %}
+    <li class="etape etape--{{ e.couleur }} etape--{{ etat }}"{% if etat == 'courante' %} aria-current="step"{% endif %}>
+      <{{ balise }} class="etape__lien"{% if balise == 'a' %} href="{{ e.url }}"{% endif %}><i>{{ e.rom }}</i><span class="etape__nom">{{ e.nom }}</span></{{ balise }}>
+    </li>
+    {% endfor %}
+  </ol>
+</nav>
+{% endmacro %}

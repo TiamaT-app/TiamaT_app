@@ -1,0 +1,8 @@
+Polices embarquées (sous-ensemble latin), distribuées sous SIL Open Font License 1.1
+(https://openfontlicense.org) :
+
+- Anton              - The Anton Project Authors
+- Instrument Serif   - The Instrument Serif Project Authors
+- Inter              - The Inter Project Authors
+
+Sources : https://fonts.google.com

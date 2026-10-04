@@ -1,9 +1,23 @@
 {% extends "pages/head_foot.html" %}
+{% import "components/ui.html" as ui %}
+{% set etape_active = 2 %}
+{% set sol_page = 'bleu' %}
+{% block titre %}Connecter Label Studio &middot; TiamaT{% endblock %}
 {% block body %}
 
-    <p>Label studio est en cours de lancement, allez récupérer votre token d'api personnel pour que TiamaT puisse s'y connecter.</p>
-    <h3>Veuillez indiquer votre token d'API Label Studio ci-dessous : </h3>
- {% include "partials/label_token.html" %}   
-          
+<div class="entete-page">
+  <p class="etiquette">Étape 2</p>
+  <h1>Connecter Label Studio</h1>
+  <p class="chapo">Label Studio démarre. Pour que TiamaT puisse s'y connecter, indiquez votre jeton d'accès personnel.</p>
+</div>
+
+<div class="panneau panneau--creme">
+  <p>Ouvrez Label Studio dans votre navigateur, connectez-vous, puis rendez-vous dans les paramètres de votre compte : votre jeton d'accès personnel s'y trouve, prêt à copier.</p>
+  <form action="/token_added" method="POST" enctype="multipart/form-data">
+    {{ form.hidden_tag() }}
+    {{ ui.champ(form.token, "Jeton d'accès personnel", placeholder="Collez votre jeton ici", autocomplete="off") }}
+    {{ ui.bouton("Valider") }}
+  </form>
+</div>
 
 {% endblock %}

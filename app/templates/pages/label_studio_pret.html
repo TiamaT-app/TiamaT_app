@@ -1,15 +1,30 @@
 {% extends "pages/head_foot.html" %}
+{% set etape_active = 2 %}
+{% set sol_page = 'ocre' %}
+{% block titre %}Label Studio est prêt &middot; TiamaT{% endblock %}
 {% block body %}
 
-<div>Vous travaillez actuellement dans le projet {{project_name}}.</div>
-<div>✅ Label Studio est prêt — votre projet a été configuré automatiquement.</div>
-<div>Label Studio se lance automatiquement dans un nouvel onglet pour que vous puissiez annoter vos images.</div>
-<div>Si ce n'est pas le cas vous pouvez accéder manuellement à l'outil  :
-    <button><a href="{{ls_url}}" target="_blank">Ouvrir Label Studio</a></button>
-</div>
-<div>Une fois vos annotations terminées, cliquez 
-    <button><a href="/dataset_statistics">ICI</a></button> 
-    pour passer à la suite.
+<div class="entete-deux-colonnes">
+  <div class="entete-page">
+    <p class="etiquette">Étape 2</p>
+    <h1>Label Studio est prêt</h1>
+    <p class="chapo">Votre projet a été configuré automatiquement : images importées, classes prêtes à annoter.</p>
+    <p class="champ__aide">Une fois annoté, cliquez pour avancer.</p>
+    <div class="actions">
+      <a class="bouton bouton--fleche" href="{{ ls_url }}" target="_blank" rel="noopener noreferrer">Ouvrir Label Studio</a>
+      <a class="bouton bouton--bleu bouton--fleche" href="{{ url_for('statistics.dataset_statistics') }}">Annotations terminées</a>
+    </div>
+  </div>
+
+  <div class="panneau panneau--sable instructions">
+    <h2>Avant d'annoter</h2>
+    <p>Dans Label Studio, configurez l'interface d'annotation :</p>
+    <ol>
+      <li>Ouvrez <strong>Settings</strong>, puis l'onglet Labeling Interface.</li>
+      <li>Cliquez sur Browse Template et choisissez Object Detection with <strong>Bounding Boxes</strong>.</li>
+      <li>Supprimez les labels d'exemple, puis écrivez les vôtres.</li>
+    </ol>
+  </div>
 </div>
 
 {% endblock %}

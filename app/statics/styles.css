@@ -1,46 +1,874 @@
-:root {
-      --blue:      #5FA8C2;
-      --blue-dark: #3a7d96;
-      --blue-bg:   #ddeef4;
-      --green:     #5C7A3E;
-      --green-dark:#313e24;
-      --green-bg:  #dfe8d4;
-      --red:       #9E2524;
-      --gold:      #D6A14F;
-      --cream:     #F6F0E0;
-      --cream-mid: #ede5cc;
-      --ink:       #120F05;
-      --ink70:     rgba(18,15,5,0.7);
-      --ink50:     rgba(18,15,5,0.5);
-      --ink15:     rgba(18,15,5,0.1);
-    }
+/* Feuille de style de TiamaT. Palette : bleu et vert en couleurs principales, rouge et
+   orange en accents, ocre en détail. Le bleu et le vert ne sont jamais voisins. */
 
-* {font-family: 'Georgia', serif;}
-html { scroll-behavior: smooth; }
+/* Polices (auto-hébergées : l'application fonctionne hors ligne) */
+@font-face {
+  font-family: 'Anton';
+  src: url('fonts/anton-latin.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Instrument Serif';
+  src: url('fonts/instrument-serif-latin.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Instrument Serif';
+  src: url('fonts/instrument-serif-italic-latin.woff2') format('woff2');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('fonts/inter-latin.woff2') format('woff2');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Jetons */
+:root {
+  --noir: #120F05;
+  --creme: #F6F0E0;
+  --blanc: #FFFFFF;
+  --bleu: #5882A8;
+  --vert: #8A7F29;
+  --ocre: #D6A14F;
+  --rouge: #B21818;
+  --orange: #CB300E;
+
+  --f-titre: 'Anton', 'Impact', 'Arial Narrow', sans-serif;
+  --f-serif: 'Instrument Serif', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+  --f-texte: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  --rayon: 1.25rem;
+  --rayon-s: 0.6rem;
+  --rayon-btn: 999px;
+  --gouttiere: clamp(1rem, 3vw, 2rem);
+  --largeur: 1200px;
+
+  --sable: #F0E0C3; /* crème teinté d'ocre (80/20) : le beige des pastilles et de la galerie */
+  --pilule-fond: var(--creme);
+  --couleur-etape: var(--bleu);
+  --bande: var(--vert);
+
+  /* Schéma par défaut : texte noir sur fond beige, bouton d'accent orange */
+  --fond: var(--creme);
+  --texte: var(--noir);
+  --accent: var(--noir);
+  --btn-fond: var(--orange);
+  --btn-texte: var(--blanc);
+  --btn-survol-fond: var(--noir);
+  --btn-survol-texte: var(--creme);
+  --btn2-fond: var(--blanc);
+  --btn2-texte: var(--noir);
+  --champ-fond: var(--blanc);
+  --champ-texte: var(--noir);
+}
+
+/* Couleur de l'en-tête et du pied (bande), selon la classe bande-* du body */
+body.bande-bleu { --bande: var(--bleu); }
+body.bande-vert { --bande: var(--vert); }
+html[data-vue="accueil"] body { --bande: var(--bleu); }
+
+/* Sol de page (classe sol-* du body) : fond entier de la page. En-tête et pied prennent
+   la même couleur, sauf si la page fixe sa bande autrement. */
+body.sol-bleu { --fond: var(--bleu); --bande: var(--bleu); }
+body.sol-vert { --fond: var(--vert); --bande: var(--vert); }
+body.sol-ocre { --fond: var(--ocre); --bande: var(--ocre); }
+body:is(.sol-bleu, .sol-vert) {
+  --accent: var(--blanc);
+  --champ-fond: var(--creme);
+  --btn2-fond: var(--creme);
+}
+body.sol-ocre {
+  --champ-fond: var(--blanc);
+  --btn2-fond: var(--blanc);
+}
+body.couleur-bleu { --couleur-etape: var(--bleu); }
+body.couleur-vert { --couleur-etape: var(--vert); }
+body.couleur-ocre { --couleur-etape: var(--ocre); }
+body.couleur-rouge { --couleur-etape: var(--rouge); }
+body.couleur-orange { --couleur-etape: var(--orange); }
+body.sol-orange {
+  --fond: var(--orange);
+  --bande: var(--orange);
+  --texte: var(--blanc);
+  --accent: var(--blanc);
+  --btn-fond: var(--noir);
+  --btn-texte: var(--creme);
+  --btn-survol-fond: var(--blanc);
+  --btn-survol-texte: var(--noir);
+  --champ-fond: var(--creme);
+  --btn2-fond: var(--creme);
+  --btn2-texte: var(--noir);
+}
+body.sol-noir {
+  --fond: var(--noir);
+  --bande: var(--noir);
+  --texte: var(--creme);
+  --accent: var(--creme);
+}
+
+/* En-tête et pied beige clair par défaut sur les pages d'étape, quel que soit le sol. */
+body.entete-clair { --bande: var(--creme); }
+body.entete-clair .bande { --texte: var(--noir); --accent: var(--noir); }
+/* Bandes colorées, choisies par la page (bande_page) : le texte passe en clair sur le noir et l'orange. */
+body.bande-orange { --bande: var(--orange); }
+body.bande-orange .bande { --texte: var(--blanc); --accent: var(--blanc); }
+body.bande-ocre { --bande: var(--ocre); }
+body.bande-noir { --bande: var(--noir); }
+body.bande-noir .bande { --texte: var(--creme); --accent: var(--creme); }
+body:is(.entete-clair, .bande-orange, .bande-ocre, .bande-noir) { --pilule-fond: var(--sable); }
+
+/* Panneaux. Chaque variante définit son fond, les composants à l'intérieur s'y adaptent.
+   Le panneau par défaut est blanc ; .panneau--etape prend la couleur de l'étape (couleur-* du body). */
+.panneau {
+  --fond: var(--blanc);
+  --texte: var(--noir);
+  --accent: var(--noir);
+  --btn-fond: var(--orange);
+  --btn-texte: var(--blanc);
+  --btn-survol-fond: var(--noir);
+  --btn-survol-texte: var(--creme);
+  --btn2-fond: var(--creme);
+  --btn2-texte: var(--noir);
+  --champ-fond: var(--creme);
+  --champ-texte: var(--noir);
+  background: var(--fond);
+  color: var(--texte);
+  border-radius: var(--rayon);
+  padding: clamp(1.5rem, 3vw, 2.5rem);
+}
+.panneau--creme {
+  --fond: var(--creme);
+  --champ-fond: var(--blanc);
+  --btn2-fond: var(--blanc);
+  background: var(--fond);
+}
+.panneau--sable {
+  --fond: var(--sable);
+  --champ-fond: var(--blanc);
+  --btn2-fond: var(--blanc);
+  background: var(--fond);
+}
+.bande {
+  --fond: var(--bande);
+  --accent: var(--blanc);
+  --champ-fond: var(--blanc);
+  --btn2-fond: var(--blanc);
+  background: var(--fond);
+  color: var(--texte);
+}
+:is(.panneau--bleu, body.couleur-bleu .panneau--etape) { --fond: var(--bleu); }
+:is(.panneau--vert, body.couleur-vert .panneau--etape) { --fond: var(--vert); }
+:is(.panneau--bleu, .panneau--vert, body:is(.couleur-bleu, .couleur-vert) .panneau--etape) {
+  --accent: var(--blanc);
+  --champ-fond: var(--blanc);
+  --btn2-fond: var(--blanc);
+  background: var(--fond);
+}
+:is(.panneau--ocre, body.couleur-ocre .panneau--etape) {
+  --fond: var(--ocre);
+  --accent: var(--noir);
+  --champ-fond: var(--blanc);
+  --btn2-fond: var(--blanc);
+  background: var(--fond);
+}
+:is(.panneau--rouge, body.couleur-rouge .panneau--etape) {
+  --fond: var(--rouge);
+  --texte: var(--creme);
+  --accent: var(--creme);
+  --btn-fond: var(--creme);
+  --btn-texte: var(--noir);
+  --btn2-fond: var(--noir);
+  --btn2-texte: var(--creme);
+  --btn-survol-fond: var(--noir);
+  --btn-survol-texte: var(--creme);
+  --champ-fond: var(--creme);
+  background: var(--fond);
+}
+:is(.panneau--orange, body.couleur-orange .panneau--etape) {
+  --fond: var(--orange);
+  --texte: var(--blanc);
+  --accent: var(--blanc);
+  --btn-fond: var(--noir);
+  --btn-texte: var(--creme);
+  --btn2-fond: var(--blanc);
+  --btn-survol-fond: var(--blanc);
+  --btn-survol-texte: var(--noir);
+  --champ-fond: var(--creme);
+  background: var(--fond);
+}
+
+/* Base */
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
 body {
-      font-family: 'Georgia', serif;
-      background: var(--cream);
-      color: var(--ink);
-      font-size: 17px;
-      line-height: 1.75;
-    }
-.top {font-family: 'Georgia', serif;
-    background: var(--green);
-    position: relative;
-    left: 0;
-    right: 0;
-  top: 0;
-} 
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--fond);
+  color: var(--texte);
+  font-family: var(--f-texte);
+  font-size: 1rem;
+  line-height: 1.65;
+}
+main { flex: 1; }
+img { max-width: 100%; height: auto; }
 
-.foot{font-family: 'Georgia', serif;
-    background: var(--green);
-  margin-bottom: -10px;
-} 
-form{  position: relative;
-  text-align: center;
-  border-radius : 15px;
-  border-width: 3px;
-    border-style: solid;
-border-color:var(--ink) ;
-padding : 2px;} 
+h1, h2, h3, h4 { margin: 0 0 0.5em; font-weight: 400; }
+h1 {
+  font-family: var(--f-titre);
+  font-size: clamp(2.2rem, 4.5vw, 3.4rem);
+  line-height: 1.05;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+h2 {
+  font-family: var(--f-serif);
+  font-size: clamp(1.9rem, 3.2vw, 2.7rem);
+  line-height: 1.1;
+}
+h3 {
+  font-family: var(--f-serif);
+  font-size: 1.55rem;
+  line-height: 1.15;
+}
+p { margin: 0 0 1em; }
+a { color: var(--texte); text-underline-offset: 0.2em; }
+strong { font-weight: 600; }
+
+:focus-visible { outline: 3px solid var(--noir); outline-offset: 3px; }
+:is(.panneau--rouge, .panneau--orange, body:is(.couleur-rouge, .couleur-orange) .panneau--etape) :focus-visible { outline-color: var(--creme); }
+
+.sr-seulement {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.lien-evitement {
+  position: absolute;
+  left: 1rem;
+  top: -4rem;
+  z-index: 10;
+  padding: 0.6rem 1rem;
+  border-radius: var(--rayon-s);
+  background: var(--noir);
+  color: var(--creme);
+  font-weight: 600;
+}
+.lien-evitement:focus { top: 1rem; }
+
+.page {
+  width: 100%;
+  max-width: var(--largeur);
+  margin-inline: auto;
+  padding: clamp(1.75rem, 4vw, 3rem) var(--gouttiere);
+}
+
+/* Typographie utilitaire */
+.etiquette {
+  margin-bottom: 0.9rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.accent {
+  margin: 0 0 1rem;
+  font-family: var(--f-serif);
+  font-style: italic;
+  font-size: clamp(1.8rem, 3.2vw, 2.6rem);
+  line-height: 1.1;
+  color: var(--accent);
+}
+.chapo {
+  max-width: 34rem;
+  font-family: var(--f-serif);
+  font-size: clamp(1.3rem, 2vw, 1.6rem);
+  line-height: 1.3;
+}
+.titre-page { margin-bottom: 2rem; }
+.titre-page .chapo { margin: 0; }
+
+/* Boutons */
+.bouton,
+button,
+input[type="submit"],
+input[type="button"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.85rem 1.5rem;
+  border: 0;
+  border-radius: var(--rayon-btn);
+  background: var(--btn-fond);
+  color: var(--btn-texte);
+  font: 600 0.9rem/1.1 var(--f-texte);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+.bouton:hover,
+button:hover,
+input[type="submit"]:hover,
+input[type="button"]:hover {
+  background: var(--btn-survol-fond);
+  color: var(--btn-survol-texte);
+}
+.bouton { letter-spacing: normal; text-transform: none; }
+.bouton--doux { background: var(--btn2-fond); color: var(--btn2-texte); }
+.bouton--bleu { --btn-fond: var(--bleu); --btn-texte: var(--noir); }
+.bouton--vert { --btn-fond: var(--vert); --btn-texte: var(--noir); }
+.bouton--orange { --btn-fond: var(--orange); --btn-texte: var(--blanc); }
+.bouton--rouge { --btn-fond: var(--rouge); --btn-texte: var(--blanc); }
+.bouton--noir { --btn-fond: var(--noir); --btn-texte: var(--creme); }
+.bouton--creme { --btn-fond: var(--creme); --btn-texte: var(--noir); }
+.bouton--fleche::after { content: "\2192"; }
+.bouton--inactif { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+.bouton[aria-busy="true"] { cursor: progress; }
+.bouton[aria-busy="true"]::after { content: none; }
+button a { color: inherit; text-decoration: none; }
+
+/* Champs de formulaire */
+.champ { display: grid; gap: 0.4rem; margin-bottom: 1rem; }
+label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.champ__aide { margin: 0.75rem 0 0; font-size: 0.85rem; }
+.champ__erreur {
+  display: inline-block;
+  margin: 0;
+  padding: 0.35rem 0.7rem;
+  border-radius: 0.4rem;
+  background: var(--rouge);
+  color: var(--creme);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+input[type="text"],
+input[type="number"],
+input[type="password"],
+select,
+textarea {
+  width: 100%;
+  padding: 0.85rem 1.25rem;
+  border: 0;
+  border-radius: var(--rayon-btn);
+  background: var(--champ-fond);
+  color: var(--champ-texte);
+  font: inherit;
+}
+select {
+  appearance: none;
+  padding-right: 3.5rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='16' fill='white'/%3E%3Cpath d='M9.5 12.5h13L16 20.5z' fill='%23120F05'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.4rem center;
+  background-size: 2rem 2rem;
+}
+.panneau--creme select { background-color: var(--blanc); }
+input[type="file"] { width: 100%; font: inherit; color: inherit; }
+input[type="file"]::file-selector-button {
+  margin-right: 1rem;
+  padding: 0.7rem 1.1rem;
+  border: 0;
+  border-radius: var(--rayon-btn);
+  background: var(--btn-fond);
+  color: var(--btn-texte);
+  font: 600 0.9rem/1.1 var(--f-texte);
+  cursor: pointer;
+}
+::placeholder { color: var(--champ-texte); opacity: 0.55; }
+option { background: var(--creme); color: var(--noir); }
+.ligne-formulaire { display: flex; align-items: flex-end; gap: 0.6rem; }
+.ligne-formulaire .champ { flex: 1; margin: 0; }
+
+/* Messages (flash) */
+.notices { padding-block: 1rem 0; }
+.notice {
+  margin: 0 0 0.75rem;
+  padding: 1rem 1.25rem;
+  border-radius: var(--rayon-s);
+  background: var(--orange);
+  color: var(--blanc);
+  font-weight: 600;
+}
+body.sol-orange .notice { background: var(--noir); color: var(--creme); }
+
+/* Marque et glyphe */
+.glyphe {
+  display: inline-block;
+  width: 1.7rem;
+  aspect-ratio: 1;
+  background: var(--glyphe, var(--texte));
+  -webkit-mask: url('dingir-gold.svg') center / contain no-repeat;
+  mask: url('dingir-gold.svg') center / contain no-repeat;
+}
+.marque {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--texte);
+  font-family: var(--f-titre);
+  font-size: 1.35rem;
+  letter-spacing: 0.03em;
+  text-decoration: none;
+}
+
+/* Bandeau supérieur et étapes */
+.haut__interieur {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  max-width: var(--largeur);
+  margin-inline: auto;
+  padding: 1rem var(--gouttiere);
+}
+.projet-actif + .haut__outils,
+.marque + .haut__outils { margin-left: auto; }
+.haut__outils {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem 1.25rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.haut__outils a { color: var(--texte); text-decoration: none; }
+.haut__outils a:hover { text-decoration: underline; }
+.etapes__liste {
+  display: flex;
+  gap: 0.4rem;
+  max-width: var(--largeur);
+  margin: 0 auto;
+  padding: 0 var(--gouttiere) 1.1rem;
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.projet-actif {
+  margin: 0;
+  padding: 0.5rem 1.1rem;
+  max-width: 18rem;
+  overflow: hidden;
+  border-radius: var(--rayon-btn);
+  background: var(--pilule-fond);
+  color: var(--noir);
+  font-family: var(--f-titre);
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.etape { flex: 1 1 0; min-width: 8.5rem; }
+.etape--bleu { --c: var(--bleu); --c-texte: var(--noir); }
+.etape--vert { --c: var(--vert); --c-texte: var(--noir); }
+.etape--ocre { --c: var(--ocre); --c-texte: var(--noir); }
+.etape--rouge { --c: var(--rouge); --c-texte: var(--blanc); }
+.etape--orange { --c: var(--orange); --c-texte: var(--blanc); }
+.etape__lien {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: 999px;
+  background: var(--pilule-fond);
+  color: var(--noir);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 0.15s, color 0.15s;
+}
+.etape__lien i { font-style: normal; font-size: 0.75rem; font-weight: 600; }
+.etape__nom {
+  text-decoration: underline;
+  text-decoration-color: var(--c);
+  text-decoration-thickness: 3px;
+  text-underline-offset: 0.3em;
+}
+a.etape__lien:hover { background: var(--noir); color: var(--creme); }
+.etape--courante .etape__lien { background: var(--c); color: var(--c-texte); font-weight: 700; }
+.etape--courante .etape__nom { text-decoration-color: var(--pilule-fond); }
+/* Bleu et vert ne doivent pas se toucher : si le bandeau est bleu et l'étape courante verte
+   (ou l'inverse), la pastille reste blanche et seul le soulignement garde la couleur de l'étape. */
+body.bande-bleu .etape--vert.etape--courante .etape__lien,
+body.bande-vert .etape--bleu.etape--courante .etape__lien {
+  background: var(--blanc);
+  color: var(--noir);
+}
+body.bande-bleu .etape--vert.etape--courante .etape__nom,
+body.bande-vert .etape--bleu.etape--courante .etape__nom {
+  text-decoration-color: var(--c);
+}
+
+.pied {
+  margin-top: 2rem;
+  font-size: 0.85rem;
+}
+/* Pages d'attente : le pied suit le sol de la page, et non la couleur du bandeau. */
+body.sol-noir.bande-ocre .pied { --fond: var(--noir); --texte: var(--creme); --accent: var(--creme); }
+body.sol-ocre.bande-noir .pied { --fond: var(--ocre); --texte: var(--noir); --accent: var(--noir); }
+.pied__interieur {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 2rem;
+  max-width: var(--largeur);
+  margin-inline: auto;
+  padding: 1.75rem var(--gouttiere);
+}
+.pied p { margin: 0; }
+.pied a { color: var(--texte); }
+
+/* Page d'accueil : introduction et liste des projets sont deux vues, pilotées par data-vue.
+   Sans JavaScript, les deux restent affichées l'une sous l'autre. */
+html[data-vue="accueil"] .haut,
+html[data-vue="accueil"] .vue-projets,
+html[data-vue="projets"] .vue-accueil { display: none; }
+
+/* Introduction */
+.hero {
+  display: flex;
+  flex-direction: column;
+  min-height: min(84vh, 46rem);
+}
+.hero__nav,
+.hero__corps {
+  width: 100%;
+  max-width: var(--largeur);
+  margin-inline: auto;
+  padding-inline: var(--gouttiere);
+}
+.hero__nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-block: 1.25rem;
+}
+.hero__liens { display: flex; gap: 1.5rem; font-size: 0.9rem; font-weight: 600; }
+.hero__liens a { color: var(--noir); text-decoration: none; }
+.hero__liens a:hover { text-decoration: underline; }
+.hero__corps {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 2rem;
+  padding-block: 2rem 4.5rem;
+}
+.affiche {
+  margin: 0 0 0.15em;
+  font-family: var(--f-titre);
+  font-weight: 400;
+  font-size: clamp(3.75rem, 9vw, 6.5rem);
+  line-height: 0.95;
+  text-transform: none;
+}
+.hero .chapo { color: var(--noir); }
+.hero .accent { color: var(--ocre); }
+.hero .marque .glyphe { --glyphe: var(--ocre); }
+.actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.75rem; }
+.actions--centre { justify-content: center; }
+.hero__corps > .glyphe {
+  --glyphe: var(--ocre);
+  width: min(24rem, 100%);
+  justify-self: center;
+}
+
+.rubrique { margin-top: clamp(3rem, 7vw, 5.5rem); }
+.principe {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: clamp(1.5rem, 5vw, 4rem);
+  align-items: start;
+}
+.principe h2 { margin: 0; }
+.cartel { font-family: var(--f-serif); font-size: 1.25rem; font-style: italic; line-height: 1.3; }
+
+.cycle {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 1.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.cycle > li { display: flex; flex-direction: column; min-height: 16rem; }
+.cycle__num {
+  margin-bottom: 1.75rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  line-height: 1;
+}
+.cycle h3 { margin: 0 0 0.4rem; }
+.cycle p { margin: 0 0 1rem; font-size: 0.95rem; }
+.puce {
+  align-self: flex-start;
+  margin-top: auto;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  background: var(--ocre);
+  color: var(--noir);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.panneau--ocre .puce { background: var(--noir); color: var(--creme); }
+
+.liens {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 1.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.lien-tuile {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  height: 100%;
+  min-height: 11rem;
+  text-decoration: none;
+  transition: transform 0.15s;
+}
+.lien-tuile:hover { transform: translateY(-3px); }
+.lien-tuile strong { display: block; font-family: var(--f-serif); font-size: 1.7rem; font-weight: 400; line-height: 1.1; }
+.lien-tuile span { display: block; margin-top: 0.35rem; font-size: 0.9rem; }
+
+/* Projets */
+.grille-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.grille-2 .panneau { min-height: 22rem; }
+.grille-2 form { display: flex; flex-direction: column; height: 100%; }
+.grille-2 h2 { margin-bottom: 0.3em; }
+.grille-2 p { max-width: 28rem; }
+.projets {
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+  max-height: 20rem;
+  overflow-y: auto;
+  list-style: none;
+}
+.projet {
+  width: 100%;
+  justify-content: space-between;
+  padding: 0.9rem 1.1rem;
+  background: var(--creme);
+  color: var(--noir);
+  text-align: left;
+}
+.projet small {
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  background: var(--ocre);
+  color: var(--noir);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.projet:hover { background: var(--noir); color: var(--creme); }
+.vide { margin: 0.75rem 0 0; padding: 1.25rem; border-radius: var(--rayon-s); background: var(--creme); }
+
+/* Tableau généré par pandas (structure imposée par le backend) : seul l'aspect est défini ici. */
+.tableau-modeles { overflow-x: auto; margin-bottom: 1.25rem; }
+.tableau-modeles table { width: 100%; border: 0; border-collapse: collapse; font-size: 0.9rem; }
+.tableau-modeles th, .tableau-modeles td { padding: 0.55rem 0.85rem; border: 0; text-align: left; white-space: nowrap; }
+.tableau-modeles thead { background: var(--sable); font-weight: 600; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.06em; }
+.tableau-modeles tbody tr:nth-child(even) { background: var(--blanc); }
+.gestion-modeles > .panneau { margin-bottom: 1.25rem; }
+
+/* Pages à sol coloré : titre de page */
+.entete-page { margin-bottom: 1.75rem; }
+.entete-page .etiquette { margin-bottom: 0.9rem; }
+.entete-page h1 { margin-bottom: 0.3em; overflow-wrap: anywhere; }
+.entete-page .chapo { max-width: 36rem; margin: 0; }
+.form-ligne { display: inline-block; margin: 0; }
+
+/* Corpus */
+/* En-tête à gauche, encart ou formulaire à droite. */
+.entete-deux-colonnes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 26rem);
+  gap: 1.5rem 2.5rem;
+  align-items: start;
+}
+.entete-deux-colonnes--centre { align-items: center; }
+.entete-deux-colonnes > .entete-page { margin: 0; }
+.entete-deux-colonnes .instructions { margin-top: 2.5rem; padding: clamp(1.1rem, 2.2vw, 1.75rem); }
+.envoi h2 { margin-bottom: 0.75rem; font-size: 1.6rem; }
+.envoi__choix { position: relative; display: flex; align-items: center; flex-wrap: wrap; gap: 0.75rem 1rem; margin-bottom: 0.75rem; }
+.envoi__etat { font-size: 0.9rem; font-weight: 600; }
+.envoi input[type="file"]:focus-visible + label { outline: 3px solid var(--noir); outline-offset: 3px; }
+.envoi .bouton { width: 100%; }
+.envoi__liste {
+  margin: 0 0 1rem;
+  padding: 0.6rem 0.9rem;
+  max-height: 9rem;
+  overflow-y: auto;
+  border-radius: var(--rayon-s);
+  background: var(--blanc);
+  color: var(--noir);
+  font-size: 0.85rem;
+  list-style: none;
+  scrollbar-width: thin;
+}
+.envoi__liste li { padding-block: 0.15rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.confirmation {
+  max-width: 30rem;
+  margin: 1.25rem 0 0;
+  padding: 0.85rem 1.25rem;
+  border-radius: 1.4rem;
+  background: var(--creme);
+  color: var(--noir);
+  font-weight: 600;
+}
+.corpus-haut { padding-bottom: clamp(1.75rem, 4vw, 3rem); }
+.bande-galerie { padding-block: clamp(1.5rem, 4vw, 2.5rem); background: var(--creme); color: var(--noir); }
+.galerie-tete {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.5rem;
+  margin: 0 0 1.25rem;
+  padding-inline: var(--gouttiere);
+}
+.galerie-tete h2 { margin: 0; font-size: 1.9rem; }
+.galerie-tete p { margin: 0; font-size: 0.9rem; }
+.bande-galerie .vide { margin-inline: var(--gouttiere); background: var(--blanc); }
+.galerie {
+  display: flex;
+  gap: 1rem;
+  padding: 0 var(--gouttiere) 0.75rem;
+  scroll-padding-inline: var(--gouttiere);
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--noir) transparent;
+}
+.galerie figure { display: grid; flex: none; justify-items: start; gap: 0.5rem; margin: 0; }
+.galerie img { display: block; width: auto; max-width: none; height: clamp(15rem, 34vh, 24rem); border-radius: var(--rayon-s); background: var(--blanc); }
+.galerie figcaption { width: 0; min-width: 100%; overflow: hidden; font-size: 0.8rem; text-overflow: ellipsis; white-space: nowrap; }
+.suite h2 { margin-bottom: 1rem; }
+.cartes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; }
+.cartes--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.carte { display: flex; flex-direction: column; gap: 0.25rem; }
+.carte .etiquette { margin-bottom: 0.25rem; }
+.carte h3 { margin: 0 0 0.4rem; font-size: 1.9rem; }
+.carte p { font-size: 0.95rem; }
+.carte__actions { display: grid; gap: 0.6rem; margin-top: auto; padding-top: 1rem; }
+.carte__note { margin: 0; font-size: 0.85rem; font-weight: 600; }
+
+/* Dataset */
+.dataset { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 1.5rem 3rem; align-items: start; }
+.dataset__graphique img { display: block; width: 100%; height: auto; }
+.dataset__texte h2 { margin-bottom: 0.6rem; }
+.dataset__texte ul { margin: 0 0 1.75rem; padding-left: 1.2rem; }
+.dataset__texte li { margin-bottom: 0.5rem; }
+.dataset__question { margin-bottom: 1rem; font-family: var(--f-serif); font-size: 1.7rem; line-height: 1.15; }
+.dataset__actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+
+/* Entraînement : texte à gauche, champs à droite, alignés par paramètre */
+.entrainement { max-width: 46rem; margin-inline: auto; }
+.reglages { display: grid; grid-template-columns: minmax(0, 1fr) minmax(14rem, 18rem); gap: 1.75rem 3rem; align-items: center; }
+.parametre { display: contents; }
+.parametre__texte label { display: block; margin-bottom: 0.4rem; }
+.parametre__texte .champ__aide { margin: 0.35rem 0 0; }
+.parametre__champ { display: flex; flex-direction: column; }
+.entrainement__pied { margin-top: 2rem; text-align: center; }
+.entrainement__pied .champ__aide { margin-top: 0.9rem; }
+
+/* Pages d'attente (entraînement, inférence) : une seule section, titre, visuel et barre. */
+.attente { text-align: center; }
+.attente .chapo { margin-inline: auto; }
+.attente__gif { display: block; width: 15rem; margin: 2.5rem auto 0; }
+.attente__barre { max-width: 26rem; margin: 2rem auto 0; }
+.attente__barre progress {
+  display: block;
+  width: 100%;
+  height: 0.9rem;
+  border: 0;
+  border-radius: var(--rayon-btn);
+  overflow: hidden;
+}
+.attente__barre progress::-webkit-progress-bar { background: var(--blanc); }
+.attente__barre progress::-webkit-progress-value { background: var(--bleu); }
+.attente__barre progress::-moz-progress-bar { background: var(--bleu); border-radius: var(--rayon-btn); }
+.attente__progres { margin: 0.9rem 0 0; font-weight: 600; }
+
+/* Pages de résultats (entraînement, évaluation) : trois bandes (titre, résultats, conclusion).
+   Les couleurs sont des modificateurs, pour garder la même structure d'une page à l'autre. */
+.resultats-haut { color: var(--blanc); }
+.resultats-haut--orange { background: var(--orange); }
+.resultats-corps { color: var(--noir); padding-block: clamp(1.5rem, 4vw, 2.5rem); }
+.resultats-corps--creme { background: var(--creme); }
+.resultats-corps--bleu { background: var(--bleu); }
+.resultats { display: flex; flex-direction: column; gap: clamp(1.5rem, 4vw, 2.5rem); }
+.resultat { display: flex; align-items: center; gap: clamp(1.5rem, 4vw, 3rem); }
+.resultat--inverse { flex-direction: row-reverse; }
+.resultat__image { flex: 3 1 0; min-width: 0; margin: 0; }
+.resultat__image img { display: block; width: 100%; height: auto; border-radius: var(--rayon-s); }
+.resultat__texte { flex: 2 1 0; min-width: 0; }
+.resultat__texte h2 { margin-bottom: 0.5rem; }
+.resultats-bas { padding-block: clamp(1rem, 2vw, 1.5rem); }
+.resultats-bas--orange { background: var(--orange); color: var(--blanc); }
+.resultats-bas--ocre { background: var(--ocre); color: var(--noir); }
+.resultats-bas__encart { max-width: 56rem; margin-inline: auto; text-align: center; padding-block: clamp(1.1rem, 2vw, 1.5rem); }
+.resultats-bas__encart .chapo { margin-inline: auto; }
+.resultats-bas__encart .envoi__choix { justify-content: center; }
+.resultats-bas__simple { max-width: 34rem; margin-inline: auto; text-align: center; }
+.resultats-bas__simple .chapo { margin-inline: auto; }
+.resultats-bas__simple .bouton { margin-top: 0.5rem; }
+
+/* Message plein bloc (erreurs, confirmations) */
+.message { max-width: 44rem; margin-inline: auto; }
+.message h1 { margin-bottom: 0.4em; }
+
+/* Encart d'instructions pas à pas */
+.instructions { max-width: 34rem; margin-bottom: 1.75rem; }
+.instructions h2 { margin-bottom: 0.5rem; }
+.instructions ol { margin: 0.75rem 0 0; padding-left: 1.2rem; }
+.instructions li { margin-bottom: 0.4rem; }
+.instructions li:last-child { margin-bottom: 0; }
+
+/* Adaptation pour tablette (écrans jusqu'à 900px) */
+@media (max-width: 900px) {
+  .hero__corps, .principe, .grille-2 { grid-template-columns: minmax(0, 1fr); }
+  .hero__corps > .glyphe { display: none; }
+  .cycle { grid-template-columns: minmax(0, 1fr); }
+  .cycle > li { min-height: 0; }
+  .liens { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grille-2 .panneau { min-height: 0; }
+  .entete-deux-colonnes, .dataset, .cartes, .reglages { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  * { transition: none !important; }
+}

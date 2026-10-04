@@ -1,15 +1,27 @@
 {% extends "pages/head_foot.html" %}
+{% import "components/ui.html" as ui %}
+{% set etape_active = 0 %}
+{% block titre %}Modèles &middot; TiamaT{% endblock %}
 {% block body %}
 
-<p>Ci-dessous les infos relatives aux modèles du projet {{nom_projet}}. </p>
-{% for table in tables %}
-            {{titles[loop.index]}}
-            {{ table|safe }}
-{% endfor %}
+<div class="entete-page">
+  <p class="etiquette">{{ nom_projet }}</p>
+  <h1>Modèles du projet</h1>
+  <p class="chapo">Modèles entraînés ou importés dans ce projet, avec leurs réglages.</p>
+</div>
 
+<div class="gestion-modeles">
+  <div class="panneau panneau--creme tableau-modeles">
+    {% for table in tables %}{{ table|safe }}{% endfor %}
+  </div>
 
-<p>Pour ajouter un modèle : </p>
-    {% include "partials/upload_model.html" %} 
-<p> <a href="/"><button>Retourner à l'accueil</button></a></p>
+  <div class="panneau panneau--creme">
+    <h2>Ajouter un modèle</h2>
+    <p class="chapo">Importez un modèle déjà entraîné ailleurs (.pt) pour le rendre disponible dans ce projet.</p>
+    {% include "partials/upload_model.html" %}
+  </div>
+
+  {{ ui.bouton("Retourner à l'accueil", href="/", variante="doux") }}
+</div>
 
 {% endblock %}

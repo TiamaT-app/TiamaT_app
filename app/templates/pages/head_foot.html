@@ -1,31 +1,62 @@
-<head><meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TiamaT</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-<link rel="shortcut icon" href="{{ url_for('static', filename='Dingir.ico') }}"></head>
+{% import "components/etapes.html" as cycle %}
+{# Une page renseigne {% set etape_active = N %} (0 = hors étape) pour afficher le bandeau.
+   Les couleurs en découlent : bande du haut/bas et couleur de l'étape (voir components/etapes.html). #}
+{% set etape = etape_active if etape_active is defined else 0 %}
+{% set dans_projet = etape > 0 %}
+{% set info_etape = cycle.ETAPES[etape - 1] if etape > 0 else none %}
+{# Une page peut aussi renseigner {% set sol_page = 'orange' %} (ou 'bleu', 'vert') : fond de page entièrement coloré. #}
+{% set sol = sol_page if sol_page is defined else '' %}
+{# Une page peut choisir la couleur de l'en-tête et du pied : {% set bande_page = 'orange' %}. Sans cela, ils sont beige clair sur les pages d'étape. #}
+{% set bande_p = bande_page if bande_page is defined else '' %}
+{% set nom_du_projet_courant = project_name if project_name is defined else (nom_projet if nom_projet is defined else (nom_du_projet if nom_du_projet is defined else '')) %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block titre %}TiamaT{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <link rel="shortcut icon" href="{{ url_for('static', filename='Dingir.ico') }}">
+  {% block head %}{% endblock %}
+</head>
+<body class="bande-{{ bande_p or (info_etape.bande if info_etape else 'vert') }}{{ ' couleur-' ~ info_etape.couleur if info_etape else '' }}{{ (' sol-' ~ sol) if sol else '' }}{{ ' entete-clair' if (dans_projet and not bande_p) else '' }}">
+  <a class="lien-evitement" href="#contenu">Aller au contenu</a>
 
-<h1 class = "top">
-   <a href="/"><img src="{{ url_for('static', filename='Dingir.png') }}" style = "height:1em"></img></a> TiamaT – Toolkit for Integrated Annotation and Machine-learning Assisted Training
-</h1>
-
-<style>
-  /* TODO: a remplacer par du vrai style dans styles.css */
-  .flash { background-color: #F6F0E0; border: 1px solid #9E2524; color: #3a7d96;
-           padding: 0.75em 1em; border-radius: 4px; margin: 1em auto; max-width: 600px; text-align: center; }
-</style>
-
-{% with messages = get_flashed_messages() %}
-  {% if messages %}
-    <div class="flash-messages">
-      {% for message in messages %}
-        <p class="flash">{{ message }}</p>
-      {% endfor %}
+  <header class="haut bande">
+    <div class="haut__interieur">
+      <a class="marque" href="/#intro"><span class="glyphe" aria-hidden="true"></span>TiamaT</a>
+      {% if dans_projet %}
+      <p class="projet-actif" data-projet="{{ nom_du_projet_courant }}" hidden><span data-projet-nom></span></p>
+      {% endif %}
+      <div class="haut__outils">
+        {% if dans_projet %}
+        <a href="/gestion_modeles">Modèles</a>
+        {% endif %}
+        <a href="/#projets">Projets</a>
+      </div>
     </div>
-  {% endif %}
-{% endwith %}
+    {% if etape_active is defined %}{{ cycle.bandeau(etape_active) }}{% endif %}
+  </header>
 
-{% block body %}
-{% endblock %}
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+    <div class="page notices" role="status">
+      {% for message in messages %}<p class="notice">{{ message }}</p>{% endfor %}
+    </div>
+    {% endif %}
+  {% endwith %}
 
-<h3 class = "foot">
-Made with ❤️ by <a href="https://github.com/Chaouabti">Marion Charpier</a> and <a href="https://github.com/fant1-LB">Fantin Le Ber</a>, © 2023–2026 • Project <a href="https://tiamat-app.github.io/"><i>TiamaT</i></a></h3>
+  <main id="contenu" class="{% block principal_classe %}page{% endblock %}">
+    {% block body %}{% endblock %}
+  </main>
+
+  <footer class="pied bande">
+    <div class="pied__interieur">
+      <p>Made by <a href="https://github.com/Chaouabti">Marion Charpier</a>, <a href="https://github.com/fant1-LB">Fantin Le Ber</a> and <a href="https://github.com/evaaaaaaa894">Eva Riviere</a> with ❤️ &middot; &copy; 2023&ndash;2026 &middot; Projet <a href="https://tiamat-app.github.io/"><i>TiamaT</i></a></p>
+      <p>Développé dans le cadre du projet TORNE-H, ENC-PSL &middot; <a href="https://creativecommons.org/licenses/by-nc/4.0/">CC BY-NC 4.0</a></p>
+    </div>
+  </footer>
+
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</body>
+</html>

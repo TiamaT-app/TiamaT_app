@@ -1,10 +1,17 @@
 {% extends "pages/head_foot.html" %}
+{% set etape_active = 8 %}
+{% set sol_page = 'orange' %}
+{% block titre %}Cycle terminé &middot; TiamaT{% endblock %}
 {% block body %}
 
-<h3>Félicitation, vous venez de terminer un cycle !</h3>
-<p>Les images issues des corrections réalisées pour le projet {{nom_du_projet}} ont été ajoutées à la groundtruth du projet.</p>  
-          
-<p>Pour lancer un nouveau cycle et entraîner un modèle avec les nouvelles images annotées, cliquez <button><a href="/accueil_projet">ICI</a></button></p>
+<div class="entete-page">
+  <p class="etiquette">Étape 8</p>
+  <h1>Bravo, un cycle de plus</h1>
+  <p class="chapo">Les images corrigées du projet {{ nom_du_projet }} ont été ajoutées à la vérité terrain.</p>
+</div>
 
+<div class="actions">
+  <a class="bouton bouton--fleche" href="{{ url_for('project.accueil_projet') }}">Lancer un nouveau cycle</a>
+</div>
 
 {% endblock %}

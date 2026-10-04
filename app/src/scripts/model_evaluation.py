@@ -607,7 +607,7 @@ def create_confusion_matrix(project_folder:str | Path, yolo_model_folder:str | P
     fig, ax = plt.subplots(figsize=(10, 8))
     
     # Costumizing and visualizing the display with rotation of x-axis labels
-    cm_display.plot(ax=ax, xticks_rotation=90, cmap='Blues', values_format='d')
+    cm_display.plot(ax=ax, xticks_rotation=90, cmap='YlOrRd', values_format='d')
 
     plt.title('Confusion matrice')
 
