@@ -7,7 +7,8 @@ Functions included:
 
 """
 
-def get_corners(x_center, y_center, width, height, img_width, img_height):
+def get_corners(x_center:float, y_center:float, width:float, height:float, 
+                img_width:int, img_height:int) -> list[list]:
 
     """
     This function returns the absolute coordinates of the four corners of aa bounding box, in a list,
@@ -42,16 +43,23 @@ def get_corners(x_center, y_center, width, height, img_width, img_height):
         - Description: A list of four lists, each containing the [x, y] coordinates of a corner of the bounding box
                        in the order [upper_left, upper_right, bottom_right, bottom_left].
     """
-    
+
+    # Compute the exact (unrounded) width and height of the bounding box in pixels
+    abs_width = float(width) * int(img_width)
+    abs_height = float(height) * int(img_height)
+
     #  Calculate the absolute pixel coordinates of the upper-left corner of the bounding box
-    upper_left_x = int((float(x_center) * int(img_width)) - (float(width) * int(img_width) / 2))
-    upper_left_y = int((float(y_center) * int(img_height)) - (float(height) * int(img_height) / 2))
+    upper_left_x = round((float(x_center) * int(img_width)) - abs_width / 2)
+    upper_left_y = round((float(y_center) * int(img_height)) - abs_height / 2)
+
+    # Round width and height only after computing the upper-left corner, so that it is based on exact values
+    abs_width, abs_height = round(abs_width), round(abs_height)
     
     # Get the absolute pixel coordinates of each corner of the bounding box
     upper_left = [upper_left_x, upper_left_y]
-    upper_right = [upper_left_x + int((float(width) * int(img_width))), upper_left_y]
-    bottom_right = [upper_left_x + int((float(width) * int(img_width))), upper_left_y + int((float(height) * int(img_height)))]
-    bottom_left = [upper_left_x, upper_left_y + int((float(height) * int(img_height)))]
+    upper_right = [upper_left_x + abs_width, upper_left_y]
+    bottom_right = [upper_left_x + abs_width, upper_left_y + abs_height]
+    bottom_left = [upper_left_x, upper_left_y + abs_height]
 
     corners = [upper_left, upper_right, bottom_right, bottom_left]
     
