@@ -8,7 +8,7 @@ Each function has its specific utility, which is described below.
 """
 
 
-def get_class_name(class_id, labels):
+def get_class_name(class_id: int|float, labels: dict) -> str:
     
     """
     This function returns the class name from the class ID. If the class key is not specified, the function returns "class unknown".
@@ -34,7 +34,7 @@ def get_class_name(class_id, labels):
     else:
         return labels.get(str(class_id), 'unknown-class')
 
-def get_class_code(class_name, labels):
+def get_class_code(class_name:str, labels:dict) -> str:
     
     """
     This function returns  the ID (key number) from the class name. If the ID key is not specified,
@@ -50,8 +50,8 @@ def get_class_code(class_name, labels):
     
     :param labels: 
         - Type: dict
-        - Description: A dictionary that maps class names to class IDs (as strings).
-                       This is the reverse mapping of the dictionary used in get_class_name.
+        - Description: The same dictionary as in get_class_name, mapping class IDs (as strings) to class names. 
+            The function reverses it internally.
     
     :return: 
         - Type: str
