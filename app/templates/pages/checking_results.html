@@ -1,15 +1,35 @@
 {% extends "pages/head_foot.html" %}
+{% set etape_active = 6 %}
+{% set sol_page = 'vert' %}
+{% block titre %}Correction des prédictions &middot; TiamaT{% endblock %}
 {% block body %}
 
-<div>Vous travaillez actuellement dans le projet {{project_name}}.</div>
-<div>✅ Label Studio est configuré — le projet <b>{{project_name}}_corrections</b> a été créé automatiquement avec vos images et les prédictions du modèle.</div>
-<div>Vous pouvez accéder à Label Studio pour corriger les annotations :
-    <button><a href="{{ ls_url }}" target="_blank">Ouvrir Label Studio</a></button>
+<div class="entete-page">
+  <p class="etiquette">Étape 6</p>
+  <h1>Corriger les prédictions</h1>
+  <p class="chapo">Label Studio a été configuré automatiquement avec vos images et les prédictions du modèle, dans le projet « {{ project_name }}_corrections ».</p>
 </div>
 
-<div>Une fois vos corrections terminées, cliquez
-    <button><a href="/evaluate_model">ICI</a></button>
-    pour visualiser les performances de votre modèle.
+<div class="cartes cartes--2">
+
+  <article class="panneau panneau--creme carte">
+    <p class="etiquette">1. Corriger</p>
+    <h3>Ouvrir Label Studio</h3>
+    <p>Reprenez chaque prédiction du modèle et corrigez-la si besoin, directement dans Label Studio.</p>
+    <div class="carte__actions">
+      <a class="bouton bouton--bleu bouton--fleche" href="{{ ls_url }}" target="_blank" rel="noopener noreferrer">Ouvrir Label Studio</a>
+    </div>
+  </article>
+
+  <article class="panneau panneau--creme carte">
+    <p class="etiquette">2. Continuer</p>
+    <h3>Voir les performances</h3>
+    <p>Une fois vos corrections enregistrées dans Label Studio, passez à l'évaluation du modèle.</p>
+    <div class="carte__actions">
+      <a class="bouton bouton--vert bouton--fleche" href="{{ url_for('testing.evaluate_model') }}">Corrections terminées</a>
+    </div>
+  </article>
+
 </div>
 
 {% endblock %}

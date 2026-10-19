@@ -1,21 +1,52 @@
 {% extends "pages/head_foot.html" %}
+{% set etape_active = 7 %}
+{% block principal_classe %}{% endblock %}
+{% block titre %}Évaluation du modèle &middot; TiamaT{% endblock %}
 {% block body %}
 
-<p>Résultats d'évaluation du modèle</p>
-<div style="display: flex; gap: 2%; justify-content: center; flex-wrap: wrap;">
-   <figure style="text-align: center; max-width: 45%;">
-        <img src="{{ url_for('files.serve_image2', relpath=matrix_path) }}"
-        style="width: 100%; height: auto;">
-           <figcaption>Matrice de confusion</figcaption>
-        </figure>
-        <figure style="text-align: center; max-width: 45%;">
-        <img src="{{ url_for('files.serve_image2', relpath=png_path) }}"
-        style="width: 100%; height: auto;">
-           <figcaption>Métriques d'évaluation</figcaption>
-        </figure>
+<div class="page">
+  <div class="entete-page">
+    <p class="etiquette">Étape 7</p>
+    <h1>Évaluation du modèle</h1>
+    <p class="chapo">Voici les performances du modèle sur vos corrections.</p>
+  </div>
 </div>
 
-<p>Pour ajouter les images corrigées au jeu d'entrainement, cliquez <button><a href="/dispatch_corrections">ICI</a></button></p>
+<section class="resultats-corps resultats-corps--bleu">
+  <div class="page resultats">
 
+    <article class="resultat resultat--inverse">
+      <figure class="resultat__image">
+        <img src="{{ url_for('files.serve_image2', relpath=matrix_path) }}" alt="Matrice de confusion des résultats du modèle">
+      </figure>
+      <div class="resultat__texte">
+        <p class="etiquette">Résultat 1</p>
+        <h2>Matrice de confusion</h2>
+        <p>Pour chaque classe, ce tableau croise ce que le modèle a prédit avec vos corrections. La diagonale correspond aux détections correctes ; le reste, aux confusions entre classes ou aux éléments manqués.</p>
+      </div>
+    </article>
 
- {% endblock %}
+    <article class="resultat">
+      <figure class="resultat__image">
+        <img src="{{ url_for('files.serve_image2', relpath=png_path) }}" alt="Métriques d'évaluation du modèle">
+      </figure>
+      <div class="resultat__texte">
+        <p class="etiquette">Résultat 2</p>
+        <h2>Métriques d'évaluation</h2>
+        <p>Précision, rappel et F1-score par classe : de quoi mesurer, chiffres à l'appui, la qualité du modèle avant de l'utiliser ou de l'affiner davantage.</p>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<section class="resultats-bas resultats-bas--bleu">
+  <div class="page resultats-bas__simple">
+    <p class="etiquette">Et maintenant ?</p>
+    <h2>Ajouter les images corrigées au jeu d'entraînement</h2>
+    <p class="chapo">Elles rejoindront la vérité terrain du projet, prêtes pour un nouveau cycle d'entraînement.</p>
+    <a class="bouton bouton--orange bouton--fleche" href="{{ url_for('testing.dispatch_corrections') }}">Ajouter au jeu d'entraînement</a>
+  </div>
+</section>
+
+{% endblock %}

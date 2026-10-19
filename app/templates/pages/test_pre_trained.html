@@ -1,7 +1,28 @@
-
 {% extends "pages/head_foot.html" %}
+{% import "components/ui.html" as ui %}
+{% set etape_active = 5 %}
+{% set sol_page = 'bleu' %}
+{% block titre %}Tester un modèle &middot; TiamaT{% endblock %}
 {% block body %}
-<div> Vous travaillez actuellement dans le projet {{project_name}}. Uploader des images pour le projet ci dessous :</div> 
-    {% include "partials/upload_et_test.html" %} 
- {% endblock %}
 
+<div class="entete-page">
+  <p class="etiquette">Étape 5</p>
+  <h1>Tester un modèle</h1>
+  <p class="chapo">Choisissez un modèle déjà entraîné dans ce projet, puis envoyez les images sur lesquelles l'appliquer.</p>
+</div>
+
+<div class="panneau panneau--creme">
+  <form action="{{ url_for('testing.test_images_pretrained') }}" method="POST" enctype="multipart/form-data" data-envoi>
+    {{ form.hidden_tag() }}
+    {{ ui.champ(form.modele, "Modèle à utiliser") }}
+    <div class="envoi__choix">
+      {{ form.fichiers(class_="sr-seulement", required=True, accept="image/*") }}
+      <label class="bouton bouton--bleu" for="{{ form.fichiers.id }}">Choisir des images</label>
+      <span class="envoi__etat" data-selection aria-live="polite">Aucune image choisie</span>
+    </div>
+    <ul class="envoi__liste" data-liste aria-label="Images choisies" hidden></ul>
+    {{ ui.bouton("Lancer l'inférence", attente="Envoi en cours…") }}
+  </form>
+</div>
+
+{% endblock %}

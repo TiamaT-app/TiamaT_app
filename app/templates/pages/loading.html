@@ -1,20 +1,14 @@
 {% extends "pages/head_foot.html" %}
+{% import "components/ui.html" as ui %}
+{% set etape_active = 4 %}
+{% set sol_page = 'noir' %}
+{% set bande_page = 'ocre' %}
+{% block principal_classe %}{% endblock %}
+{% block titre %}Entraînement en cours &middot; TiamaT{% endblock %}
 {% block body %}
-<meta http-equiv="refresh" content="10;url={{ url_for('training.check_training_status') }}">
-
-<h1>Entraînement en cours</h1>
-<p>Veuillez patienter</p>
-<p>Progression : {{ epoch if epoch else "Initialisation..." }}</p>
-<div class="spinner">⏳</div>
-{% if epoch %}
-<progress 
-    value="{{ epoch.split('/')[0] }}" 
-    max="{{ epoch.split('/')[1] }}"
-    style="text-align: center; width: 80%; height: 2em;">
-</progress>
-{% endif %}
-<div style="text-align: center;">
-    <img src="{{ url_for('static', filename='nyan-cat.gif') }}" style="height: 100px;">
-</div>
-
+{{ ui.attente(
+  "Entraînement en cours",
+  "Le modèle s'entraîne sur les annotations du projet. Cette page se met à jour automatiquement, inutile de la recharger.",
+  url_for('training.check_training_status'), 10, epoch
+) }}
 {% endblock %}

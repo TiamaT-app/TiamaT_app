@@ -5,7 +5,9 @@ from datetime import datetime
 from threading import Thread
 import pandas as pd
 
+
 from flask import Blueprint, render_template, request, redirect, url_for
+from ultralytics import YOLO
 
 from ..src.scripts.data_preparation_and_training import training, dispatch_data
 from ..src.modules.models_functions import get_model_list
@@ -105,10 +107,12 @@ def result():
     if (Path(project_folder)/f"{project_name}.csv").is_file():
         df = pd.read_csv(Path(project_folder)/f"{project_name}.csv")
         dico_config["origine"] = "TiamaT" 
+        dico_config["classes"] = YOLO(Path("output")/"train"/model_name/"weights"/"best.pt").names
         df.loc[len(df)] = dico_config
         df.to_csv(Path(project_folder)/f"{project_name}.csv", index = False)
     else :
         dico_config["origine"] = "TiamaT"
+        dico_config["classes"] = YOLO(Path("output")/"train"/model_name/"weights"/"best.pt").names
         df = pd.DataFrame(dico_config, index=[0])
         df.to_csv(Path(project_folder)/f"{project_name}.csv", index = False)
 

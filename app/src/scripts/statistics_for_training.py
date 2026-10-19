@@ -345,7 +345,7 @@ def classes_distribution(project_folder:str | Path)-> None:
     print(f'{csv_file_path} created')
     
     # Creating a stacked bar chart
-    plt.barh(class_names, occurrences.values(), color="#3a7d96", edgecolor="#313e24")
+    plt.barh(class_names, occurrences.values(), color="#cb300e", edgecolor="#BA3D04")
 
     # Setting axis and title labels
     plt.xlabel('Nombre d\'occurrences')

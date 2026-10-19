@@ -1,26 +1,14 @@
 {% extends "pages/head_foot.html" %}
+{% set etape_active = 2 %}
+{% set sol_page = 'bleu' %}
+{% block titre %}Configuration de Label Studio &middot; TiamaT{% endblock %}
 {% block body %}
-    
-<script>
-// Polling : vérifie toutes les 2 secondes si LS est prêt
-const interval = setInterval(function() {
-    fetch("/check_ls_status")
-        .then(response => {
-            if (response.redirected) {
-                clearInterval(interval);
-                window.location.href = response.url;
-            }
-        })
-        .catch(err => console.log("En attente de Label Studio...", err));
-}, 2000);
 
-</script>
+<div class="attente" data-sondage="{{ url_for('labeling.check_ls_status') }}" data-sondage-delai="2000">
+  <p class="etiquette">Veuillez patienter</p>
+  <h1>Configuration de Label Studio</h1>
+  <p class="chapo">TiamaT importe vos images et prépare le projet dans Label Studio. Cette page se met à jour automatiquement, inutile de la recharger.</p>
+  <img class="attente__gif" src="{{ url_for('static', filename='toothless-dance.gif') }}" alt="" aria-hidden="true">
+</div>
 
-<div> Vous travaillez actuellement dans le projet {{project_name}}.</div>
-<div>⏳ Label Studio est en cours de configuration, merci de patienter...</div>
-<!---<div> Dans label studio, dans votre projet, le chemin de stockage des images est {{chemin_images}} </div>
-<div> Le chemin de stockage des annotations est {{chemin_labels}} </div>--->
-<div>Une fois vos annotations terminées, cliquez 
-    <button><a href="/dataset_statistics">ICI</a></button>
-     pour passer à la suite.</div>
 {% endblock %}

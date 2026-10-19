@@ -1,20 +1,30 @@
-<body>
-    <form action = "/start_training" method="POST" enctype="multipart/form-data">
-        <p>Nombre d'epochs?</p>
-        <input type="number" name="epochs" value="10" /><br>
-        <p>Dropout?</p>
-        <input type="number" name="dropout" step = "0.1" value="0.2" /><br>
-        <p>Réutiliser un modèle déjà entraîné dans le cadre du projet?</p>
-         <select name="modele">
+{% import "components/ui.html" as ui %}
+{# Envoi vers POST /start_training : la route lit les champs epochs (entier), dropout (décimal)
+   et modele ("------" = aucun modèle du projet, YOLO de base) via request.form.get(), par nom.
+   Noms et valeur "------" à ne pas changer. #}
+<form action="/start_training" method="POST" enctype="multipart/form-data">
+  <div class="reglages">
 
-{% for each in liste_modeles %}
+    {% call ui.parametre("epochs", "Nombre d'époques", "Nombre de passages complets du modèle sur le jeu d'entraînement. Plus il est élevé, plus l'entraînement est long.") %}
+    <input type="number" id="epochs" name="epochs" value="10" min="1" step="1" inputmode="numeric" required>
+    {% endcall %}
 
-<option value="{{each}}">{{each}}</option>
+    {% call ui.parametre("dropout", "Dropout", "Part des connexions du réseau ignorées au hasard pendant l'entraînement, pour limiter le surapprentissage. Entre 0 (désactivé) et 1.") %}
+    <input type="number" id="dropout" name="dropout" value="0.2" min="0" max="1" step="0.1" inputmode="decimal" required>
+    {% endcall %}
 
-{% endfor %}
+    {% call ui.parametre("modele", "Modèle de départ", "Reprendre un modèle déjà entraîné dans ce projet pour l'affiner, ou partir du modèle YOLO de base.") %}
+    <select id="modele" name="modele">
+      {% for each in liste_modeles %}
+      <option value="{{ each }}">{{ "Modèle YOLO de base" if each == "------" else each }}</option>
+      {% endfor %}
+    </select>
+    {% endcall %}
 
-</select> 
-<!---        <input type="file" name ="model" value = "Modèle personnalisé pour l'entraînement" /><br>---><br>
-        <input type = "submit" value ="Valider"/> 
-    </form>
-</body>
+  </div>
+
+  <div class="entrainement__pied">
+    {{ ui.bouton("Lancer l'entraînement", variante="rouge", attente="Lancement en cours…") }}
+    <p class="champ__aide">L'entraînement peut prendre un peu de temps : une page de suivi s'affiche ensuite.</p>
+  </div>
+</form>

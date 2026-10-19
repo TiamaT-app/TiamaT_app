@@ -1,7 +1,13 @@
 {% extends "pages/head_foot.html" %}
+{% import "components/ui.html" as ui %}
+{% set etape_active = 0 %}
 {% block body %}
 
-
-<div>Le projet {{project_name}} existe déjà ou est invalide : <button><b><a href="/">  réessayer un autre nom </a></b></button></div>
+<section class="panneau panneau--rouge message">
+  <p class="etiquette">Projet non créé</p>
+  <h1>Nom indisponible</h1>
+  <p>Le projet <strong>{{ project_name }}</strong> existe déjà ou est invalide.</p>
+  {{ ui.bouton("Essayer un autre nom", href="/#projets") }}
+</section>
 
 {% endblock %}

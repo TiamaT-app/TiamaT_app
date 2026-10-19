@@ -1,8 +1,16 @@
 {% extends "pages/head_foot.html" %}
+{% set etape_active = 4 %}
+{% set sol_page = 'vert' %}
+{% block titre %}Entraînement &middot; TiamaT{% endblock %}
 {% block body %}
 
-   <div>Organisez ci dessous l'entraînement de votre modèle, si vous n'avez pas de modèle personnalisé à proposer laissez le deuxième champ vide. </div> 
-   {% include "partials/setup_training.html" %}
-   <p>L'entraînement peut prendre un peu de temps, soyez patients !</p>
+<div class="entrainement">
+  <div class="entete-page">
+    <p class="etiquette">Étape 4</p>
+    <h1>Entraînement</h1>
+    <p class="chapo">Réglez le modèle YOLO qui sera entraîné sur les annotations du projet.</p>
+  </div>
+  {% include "partials/setup_training.html" %}
+</div>
 
 {% endblock %}

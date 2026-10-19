@@ -15,6 +15,8 @@ historique, non utilise dans ce fichier.
 
 from pathlib import Path
 import os
+import shutil
+import re
 
 from flask import Blueprint , render_template, flash, redirect, url_for
 import pandas as pd
@@ -106,8 +108,36 @@ def gestion_modeles():
 
     if (Path("projects")/project_name/f"{project_name}.csv").is_file():
         df = pd.read_csv(Path("projects")/project_name/f"{project_name}.csv")
-        return render_template("pages/gestion_modeles.html", tables=[df.to_html(classes='data')], titles=df.columns.values, nom_projet = project_name, form = form)
+        liste_urls =[] 
+        for index, row in df.iterrows():
+                        path_model = Path.cwd()/"output"/"train"/row["model_name"]/ "weights"/"best.pt"
+                        if os.path.isfile(path_model):
+                            liste_urls.append(f'<a href="/download/{path_model}" class="btn btn-primary btn-sm">Download</a>')
+                        else:
+                            liste_urls.append(f"Erreur avec le modèle {row['model_name']}")
+        df["urls"]= liste_urls 
+        return render_template("pages/gestion_modeles.html", tables=[df.to_html(classes='data', escape=False)], titles=df.columns.values, nom_projet = project_name, form = form)
 
     else:
         return render_template("pages/gestion_modele2.html", form=form)
-    
+
+@project_bp.route("/suppression_projet_check", methods=["GET", "POST"])
+def check_projet():
+      project_name = load_current_project()
+      return render_template("pages/supression_projet_check.html", project_name=project_name)
+
+@project_bp.route("/supression_projet", methods=["GET", "POST"])
+def suppression_projet():
+      project_name = load_current_project()
+      project_models = (pd.read_csv(Path.cwd()/ "projects"/ project_name / f"{project_name}.csv")["model_name"]).tolist()
+      for i in project_models:
+            shutil.rmtree(Path.cwd()/"output"/ "train"/ i)
+            for z in os.listdir(Path.cwd()/'output'/"predict"):
+                if re.match(rf'^{re.escape(i)}_{re.escape(i)}_\d{{8}}_\d{{6}}$', z):
+                      shutil.rmtree(Path.cwd()/'output'/"predict"/z)
+                else:
+                      pass
+      shutil.rmtree(Path.cwd()/"data"/project_name)
+      shutil.rmtree(Path.cwd()/"projects"/project_name)
+      flash(f"Projet {project_name} supprimé. ")
+      return redirect(url_for('project.accueil'))

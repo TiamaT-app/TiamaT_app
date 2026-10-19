@@ -1,11 +1,34 @@
 {% extends "pages/head_foot.html" %}
+{% import "components/ui.html" as ui %}
+{% set etape_active = 3 %}
+{% set sol_page = 'bleu' %}
+{% set bande_page = 'bleu' %}
+{% block titre %}Dataset &middot; TiamaT{% endblock %}
 {% block body %}
 
-<div> Vous travaillez actuellement dans le projet {{project_name}}. </div>
-    <div><img src="{{class_distibution_path}}"/>  </div>
+<div class="entete-page">
+  <p class="etiquette">Étape 3</p>
+  <h1>Dataset</h1>
+  <p class="chapo">Vérifiez l'équilibre de vos annotations avant de lancer l'entraînement.</p>
+</div>
 
-<div> Cette distribution vous convient-t-elle pour lancer l'entraînement?
-   <button> <a href="/training_setup">Oui, passer à l'entrainement.</a></button> <button><a href="/">Non, retourner à l'écran d'accueil des projets</a></button>
+<div class="dataset">
+  <div class="panneau dataset__graphique">
+    <img src="{{ class_distibution_path }}" alt="Diagramme en barres : nombre d'annotations pour chaque classe du projet">
+  </div>
+  <div class="dataset__texte">
+    <h2>Répartition des classes</h2>
+    <ul>
+      <li>Diagramme en barres : nombre d'annotations pour chaque classe du projet.</li>
+      <li>Seules les classes déjà annotées apparaissent.</li>
+      <li>Une classe très peu représentée risque d'être mal détectée : annotez davantage d'exemples avant d'entraîner si besoin.</li>
+    </ul>
+    <p class="dataset__question">Cette répartition vous convient-elle pour lancer l'entraînement ?</p>
+    <div class="dataset__actions">
+      {{ ui.vers_corpus(project_name, "Non, retour aux images", variante="doux") }}
+      {{ ui.bouton("Oui, passer à l'entraînement", href=url_for('training.training_setup'), variante="orange", fleche=true, attente="Chargement…") }}
+    </div>
+  </div>
 </div>
 
 {% endblock %}

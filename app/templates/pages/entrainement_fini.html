@@ -1,25 +1,57 @@
 {% extends "pages/head_foot.html" %}
+{% set etape_active = 4 %}
+{% set sol_page = 'orange' %}
+{% set bande_page = 'orange' %}
+{% block principal_classe %}{% endblock %}
+{% block titre %}Entraînement terminé &middot; TiamaT{% endblock %}
 {% block body %}
 
-<p>Entraînement terminé.</p>
-<div style="display: flex; gap: 2%; justify-content: center; flex-wrap :wrap;">
-    <figure style="text-align: center; max-width: 45%;">
-           <img src="{{ url_for('files.serve_image', filename=chemin_matrice) }}"
-           style="width: 100%; height: auto;">
-           <figcaption>Matrice de confusion des résultats du modèle sur le jeu de validation</figcaption>
-        </figure>
-    <figure style="text-align: center; max-width: 45%;">
-        <img src="{{ url_for('files.serve_image', filename=chemin_val_batch) }}"
-        style="width: 100%; height: auto;">
-           <figcaption>Détections sur une sélection d'images du jeu de validation</figcaption>
-        </figure>
-</div>
+<section class="resultats-haut resultats-haut--orange">
+  <div class="page">
+    <p class="etiquette">Étape 4</p>
+    <h1>Entraînement terminé</h1>
+    <p class="chapo">Voici les résultats du modèle sur le jeu de validation.</p>
+  </div>
+</section>
 
-<p> Si vous souhaitez tester votre modèle sur un set d'images, uploadez les ci-dessous :</p>
-    {% include "partials/upload2.html" %}
+<section class="resultats-corps resultats-corps--creme">
+  <div class="page resultats">
 
-<p> Sinon vous pouvez : <a href="/"><button>Retourner à l'accueil</button></a></p>
+    <article class="resultat">
+      <figure class="resultat__image">
+        <img src="{{ url_for('files.serve_image', filename=chemin_matrice) }}" alt="Matrice de confusion des résultats du modèle sur le jeu de validation">
+      </figure>
+      <div class="resultat__texte">
+        <p class="etiquette">Résultat 1</p>
+        <h2>Matrice de confusion</h2>
+        <p>Pour chaque classe, ce tableau croise ce que le modèle a prédit avec la réalité de vos annotations. La diagonale correspond aux détections correctes ; le reste, aux confusions entre classes ou aux éléments manqués. Une classe difficile à distinguer des autres apparaît hors diagonale.</p>
+      </div>
+    </article>
+
+    <article class="resultat resultat--inverse">
+      <figure class="resultat__image">
+        <img src="{{ url_for('files.serve_image', filename=chemin_val_batch) }}" alt="Détections du modèle sur une sélection d'images du jeu de validation">
+      </figure>
+      <div class="resultat__texte">
+        <p class="etiquette">Résultat 2</p>
+        <h2>Détections sur le jeu de validation</h2>
+        <p>Un échantillon d'images du jeu de validation, avec les boîtes que le modèle a lui-même détectées. C'est le moyen le plus direct de juger, en un coup d'œil, si ses prédictions sont pertinentes.</p>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<section class="resultats-bas resultats-bas--orange">
+  <div class="page">
+    <div class="resultats-bas__encart panneau panneau--bleu">
+      <p class="etiquette">Et maintenant ?</p>
+      <h2>Tester le modèle sur de nouvelles images</h2>
+      <p class="chapo">Envoyez des images que le modèle n'a jamais vues, pour vérifier ses prédictions en conditions réelles.</p>
+      {% include "partials/upload2.html" %}
+      <p><a href="/">Retourner à l'accueil</a></p>
+    </div>
+  </div>
+</section>
 
 {% endblock %}
-
-

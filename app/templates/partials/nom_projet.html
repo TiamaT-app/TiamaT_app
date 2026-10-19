@@ -1,14 +1,41 @@
+{% import "components/ui.html" as ui %}
+{# Les deux formulaires postent vers /accueil_projet et envoient toujours les
+   deux champs (nom, projet_existant), l'un des deux étant vide : la route
+   décide selon lequel est renseigné, et échoue si l'un des champs manque. #}
+<div class="grille-2">
 
+  <section class="panneau panneau--vert" aria-labelledby="titre-nouveau">
+    <form action="/accueil_projet" method="POST" enctype="multipart/form-data">
+      {{ form.hidden_tag() }}
+      <input type="hidden" name="projet_existant" value="">
+      <p class="etiquette">Première fois</p>
+      <h2 id="titre-nouveau">Nouveau projet</h2>
+      <p>Un projet regroupe un corpus d'images, ses annotations et les modèles entraînés.</p>
+      <div class="ligne-formulaire">
+        {{ ui.champ(form.nom, "Nom du projet", placeholder="ex. registre_1348", autocomplete="off") }}
+        {{ ui.bouton("Créer") }}
+      </div>
+      <p class="champ__aide">Ce nom devient un nom de dossier : évitez les caractères spéciaux.</p>
+    </form>
+  </section>
 
-<form action = "/accueil_projet" method="POST" enctype="multipart/form-data">
-        <div>
-        {{ form.hidden_tag() }}
-                {{ form.nom(class_="form-control", placeholder_="nom") }}
-        </div>
-        <div>
-        {{ form.projet_existant.label }}
-        {{ form.projet_existant(class_="form-control", id="projet_select") }}
-    </div>
+  <section class="panneau" aria-labelledby="titre-reprendre">
+    <form action="/accueil_projet" method="POST" enctype="multipart/form-data">
+      {{ form.hidden_tag() }}
+      <input type="hidden" name="nom" value="">
+      <p class="etiquette">Déjà commencé</p>
+      <h2 id="titre-reprendre">Reprendre un projet</h2>
+      {% if liste_projets %}
+      <p>Choisissez un projet pour retrouver son corpus.</p>
+      <ul class="projets">
+        {% for projet in liste_projets|sort(case_sensitive=false) %}
+        <li><button class="projet" type="submit" name="projet_existant" value="{{ projet }}"><span>{{ projet }}</span><small>Ouvrir</small></button></li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="vide">Aucun projet pour l'instant. Créez-en un pour commencer.</p>
+      {% endif %}
+    </form>
+  </section>
 
-                <input type="submit" value="Valider">
-</form>
+</div>

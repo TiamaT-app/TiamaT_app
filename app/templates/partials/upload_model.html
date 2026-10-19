@@ -1,10 +1,12 @@
-<body>
-    <form action = "/upload_modele" method="POST" enctype="multipart/form-data">
-        {{ form.hidden_tag() }}
-            {{ form.nom(class_="form-control", placeholder_="nom") }}
-
-            {{ form.model(class_="form-control", placeholder_="model") }}
-
-        <input type = "submit" value="Valider">
-    </form>
-</body>
+{% import "components/ui.html" as ui %}
+{# Import d'un modèle déjà entraîné ailleurs : POST /upload_modele. #}
+<form action="{{ url_for('upload.upload_modele') }}" method="POST" enctype="multipart/form-data">
+  {{ form.hidden_tag() }}
+  {{ ui.champ(form.nom, "Nom du modèle", placeholder="ex. registre_1348_v2", autocomplete="off") }}
+  <div class="champ">
+    <label for="{{ form.model.id }}">Fichier du modèle (.pt)</label>
+    {{ form.model(class_="sr-seulement", accept=".pt") }}
+    <label class="bouton bouton--doux" for="{{ form.model.id }}">Choisir un fichier</label>
+  </div>
+  {{ ui.bouton("Ajouter le modèle") }}
+</form>

@@ -1,9 +1,126 @@
-
-{% from 'bootstrap5/form.html' import render_form %}
 {% extends "pages/head_foot.html" %}
+{% import "components/etapes.html" as cycle %}
+{% import "components/ui.html" as ui %}
+{% set etape_active = 0 %}
+
+{% set liens = [
+  {'nom': 'Documentation', 'desc': "Installation, concepts et outils.", 'url': 'https://tiamat-app.github.io/', 'couleur': 'bleu'},
+  {'nom': 'Code source', 'desc': "Dépôt GitHub de l'application.", 'url': 'https://github.com/TiamaT-app/TiamaT_app', 'couleur': 'orange'},
+  {'nom': 'CLI et notebooks', 'desc': "Version en ligne de commande.", 'url': 'https://github.com/Chaouabti/Tiamat', 'couleur': 'ocre'},
+  {'nom': 'Publications', 'desc': "Articles, posters et communications.", 'url': 'https://tiamat-app.github.io/#resources', 'couleur': 'vert'}
+] %}
+
+{% block principal_classe %}{% endblock %}
+
+{% block head %}
+<script>
+/* Deux vues sur la même route : introduction (bleue) puis projets.
+   L'introduction n'est montrée qu'une fois par session, sauf lien explicite (#intro). */
+(function () {
+  var racine = document.documentElement;
+  var CLE = 'tiamat.intro-vue';
+  var aDesMessages = {{ 'true' if get_flashed_messages() else 'false' }};
+
+  function vueInitiale() {
+    if (location.hash === '#intro') return 'accueil';
+    if (location.hash === '#projets' || aDesMessages) return 'projets';
+    try { if (sessionStorage.getItem(CLE)) return 'projets'; } catch (e) {}
+    return 'accueil';
+  }
+  function afficher(vue) {
+    racine.setAttribute('data-vue', vue);
+    if (vue === 'projets') { try { sessionStorage.setItem(CLE, '1'); } catch (e) {} }
+  }
+
+  afficher(vueInitiale());
+  window.addEventListener('hashchange', function () {
+    afficher(location.hash === '#projets' ? 'projets' : 'accueil');
+    window.scrollTo(0, 0);
+  });
+})();
+</script>
+{% endblock %}
+
 {% block body %}
 
-<h3>Bienvenue sur l'onglet d'accueil de TiamaT, veuillez sélectionner ou créer un projet ci-dessous : </h3>
-{% include "partials/nom_projet.html" %}   
+<div id="intro" class="vue vue-accueil">
+
+  <section class="hero bande" aria-labelledby="titre-accueil">
+    <div class="hero__nav">
+      <a class="marque" href="#intro"><span class="glyphe" aria-hidden="true"></span>TiamaT</a>
+      <div class="hero__liens">
+        <a href="https://tiamat-app.github.io/" target="_blank" rel="noopener noreferrer">Documentation</a>
+        <a href="https://github.com/TiamaT-app/TiamaT_app" target="_blank" rel="noopener noreferrer">Code source</a>
+      </div>
+    </div>
+    <div class="hero__corps">
+      <div>
+        <p class="etiquette">Vision par ordinateur pour les collections patrimoniales</p>
+        <h1 id="titre-accueil" class="affiche">TiamaT</h1>
+        <p class="accent">l'analyse visuelle, pilotée par l'humain</p>
+        <p class="chapo">Un workflow itératif, avec l'humain dans la boucle, pour analyser des corpus visuels patrimoniaux, sans écrire une ligne de Python.</p>
+        <div class="actions">
+          {{ ui.bouton("Commencer", href="#projets") }}
+          <a class="bouton bouton--doux" href="https://tiamat-app.github.io/" target="_blank" rel="noopener noreferrer">Documentation</a>
+        </div>
+      </div>
+      <span class="glyphe" aria-hidden="true"></span>
+    </div>
+  </section>
+
+  <div class="page">
+
+    <section class="rubrique principe" aria-labelledby="titre-principe">
+      <div>
+        <p class="etiquette">Principe</p>
+        <h2 id="titre-principe">Un protocole, pas une boîte noire</h2>
+      </div>
+      <div>
+        <p>Plutôt que d'évaluer un modèle sur un corpus de test figé, TiamaT intègre la correction manuelle des prédictions dans un cycle continu d'entraînement et d'évaluation. L'expertise humaine reste au cœur du traitement, ce qui convient aux corpus patrimoniaux, où aucune vérité terrain idéale n'existe à l'avance.</p>
+        <p class="cartel">Le nom est un clin d'œil à Tiamat, déesse mésopotamienne de l'océan et du chaos : un symbole pour transformer des données brutes en connaissances structurées.</p>
+      </div>
+    </section>
+
+    <section class="rubrique" aria-labelledby="titre-cycle">
+      <h2 id="titre-cycle">Un cycle en huit étapes</h2>
+      <ol class="cycle">
+        {% for e in cycle.ETAPES %}
+        <li class="panneau panneau--{{ e.couleur }}">
+          <span class="cycle__num">{{ e.rom }}</span>
+          <h3>{{ e.nom }}</h3>
+          <p>{{ e.desc }}</p>
+          {% if e.outil %}<span class="puce">{{ e.outil }}</span>{% endif %}
+        </li>
+        {% endfor %}
+      </ol>
+    </section>
+
+    <section class="rubrique" aria-labelledby="titre-liens">
+      <h2 id="titre-liens">Aller plus loin</h2>
+      <ul class="liens">
+        {% for lien in liens %}
+        <li>
+          <a class="panneau panneau--{{ lien.couleur }} lien-tuile" href="{{ lien.url }}" target="_blank" rel="noopener noreferrer">
+            <strong>{{ lien.nom }}</strong>
+            <span>{{ lien.desc }}</span>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+
+  </div>
+
+</div>
+
+<div id="projets" class="vue vue-projets">
+  <div class="page">
+    <div class="titre-page">
+      <h1>Projets</h1>
+      <p class="chapo">Créez un projet pour démarrer un nouveau corpus, ou reprenez un projet existant.</p>
+    </div>
+    {% include "partials/nom_projet.html" %}
+  </div>
+</div>
 
 {% endblock %}
