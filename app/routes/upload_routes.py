@@ -1,8 +1,18 @@
-#route qui se lance au clic sur le bouton d'upload d'images dans un projet, place les images dans groundtruth
+"""
+Routes d'import de fichiers dans le projet courant.
+
+- upload()        : import d'images dans projects/{projet}/image_inputs/ground_truth_images/
+- upload_modele() : import d'un modele YOLO deja entraine (.pt) dans output/train/{projet}_{nom}/
+"""
+
 from pathlib import Path
 import os
+import shutil
+import unicodedata
+
 import pandas as pd
 from ultralytics import YOLO
+from werkzeug.utils import secure_filename
 from app.app import app
 
 from flask import Blueprint, render_template, flash, redirect, url_for
@@ -17,94 +27,152 @@ from app.services.image_service import get_preview_images
 
 upload_bp = Blueprint("upload", __name__)
 
+# Lettres que la décomposition Unicode ne sépare pas de leur « accent »
+LIGATURES = str.maketrans({"œ": "oe", "Œ": "OE", "æ": "ae", "Æ": "AE", "ß": "ss"})
 
-@upload_bp.route("/upload", methods = ['GET', 'POST'])
+
+def ascii_filename(filename: str) -> str:
+    """
+    Transforme un nom de fichier en nom sûr et sans accent, en conservant les lettres :
+    "épître_01.JPG" -> "epitre_01.jpg", "Œuvre complète.png" -> "OEuvre_complete.png".
+
+    secure_filename, utilisé seul, supprimerait les lettres accentuées ("épître" -> "pitre").
+    On retire donc d'abord les accents : la normalisation NFKD sépare chaque lettre de
+    son accent (é -> e + ´), puis l'encodage ASCII supprime les accents isolés.
+    """
+    stem, extension = os.path.splitext(filename)
+    stem = unicodedata.normalize("NFKD", stem.translate(LIGATURES))
+    stem = stem.encode("ascii", "ignore").decode("ascii")
+    # secure_filename remplace les espaces par des _ et retire / \ .. et autres caractères risqués.
+    # Un nom entièrement non latin (grec, cyrillique...) deviendrait vide : on le remplace par "image".
+    stem = secure_filename(stem) or "image"
+    return stem + extension.lower()
+
+
+def save_without_overwriting(fichier, folder: Path) -> tuple[str | None, bool]:
+    """
+    Enregistre l'image envoyée dans folder sous un nom ASCII, sans jamais écraser ni dupliquer.
+
+    - si une image identique (même contenu) existe déjà sous ce nom ou une variante
+      (nom_1.jpg...), rien n'est enregistré : renvoie (None, False) ;
+    - si le nom est pris par une autre image (ex : folio_é.jpg et folio_è.jpg, qui
+      deviennent toutes deux folio_e.jpg), l'image est enregistrée sous nom_1.jpg,
+      nom_2.jpg... : renvoie (nom_enregistre, True) ;
+    - sinon : renvoie (nom_enregistre, False).
+    """
+    contenu = fichier.read()
+    nom = ascii_filename(fichier.filename)
+    stem, extension = os.path.splitext(nom)
+
+    candidat, numero = nom, 0
+    while (folder / candidat).exists():
+        if (folder / candidat).read_bytes() == contenu:
+            return None, False
+        numero += 1
+        candidat = f"{stem}_{numero}{extension}"
+
+    (folder / candidat).write_bytes(contenu)
+    return candidat, numero > 0
+
+
+@upload_bp.route("/upload", methods=['GET', 'POST'])
 def upload():
-    
     project_name = load_current_project()
     chemin_images = projects_folder / project_name / "image_inputs" / "ground_truth_images"
     chemin_labels = projects_folder / project_name / "annotations" / "ground_truth"
-    
+
     # NB : doit pointer sous projects/, comme chemin_images ci-dessus
     app.config['UPLOADED_IMAGES_DEST'] = str(chemin_images)
-    
-    form = ImportImages()
-    form2= ImportImages()
-    configure_uploads(app, images_uploadees)
-    
-    if form.validate_on_submit():
-        list_img = []
-        for fichier in form.fichiers.data:
-            images_uploadees.save(fichier)
-            list_img.append(fichier.filename)
-        # Get the list of files from webpage
-        files2 = f"Vos {len(list_img)} images"
-        
-        liste_images, liste_noms, _ = get_preview_images(chemin_images)
 
-        return render_template(
-            "/pages/upload_full.html", 
-            project_name= project_name, 
-            files2 = files2, 
-            form=form, 
-            form2=form2, 
-            chemin_images=str(chemin_images), 
-            chemin_labels=str(chemin_labels), 
-            liste_images=liste_images, 
-            liste_noms=liste_noms)
-    else:
+    form = ImportImages()
+    configure_uploads(app, images_uploadees)
+
+    if not form.validate_on_submit():
         print(form.errors)
-        print("erreur de formulaire")
         flash("Erreur lors de l'upload des images, merci de réessayer.")
         return redirect(url_for('project.accueil_projet'))
-    
 
-@upload_bp.route("/upload_modele", methods = ['GET', 'POST'])
+    list_img = []
+    deja_presentes = 0
+    for fichier in form.fichiers.data:
+        nom_enregistre, renommee = save_without_overwriting(fichier, chemin_images)
+        if nom_enregistre is None:
+            deja_presentes += 1
+            continue
+        list_img.append(nom_enregistre)
+        if renommee:
+            flash(f"{fichier.filename} enregistrée sous {nom_enregistre} : "
+                  f"une autre image du projet porte déjà le nom {ascii_filename(fichier.filename)}.")
+
+    if deja_presentes:
+        flash(f"{deja_presentes} image(s) déjà présente(s) dans le projet, non importée(s) à nouveau.")
+
+    files2 = f"Vos {len(list_img)} images"
+    liste_images, liste_noms, _ = get_preview_images(chemin_images)
+
+    return render_template(
+        "/pages/upload_full.html",
+        project_name=project_name,
+        files2=files2,
+        form=form,
+        form2=ImportImages(),
+        chemin_images=str(chemin_images),
+        chemin_labels=str(chemin_labels),
+        liste_images=liste_images,
+        liste_noms=liste_noms)
+
+
+@upload_bp.route("/upload_modele", methods=['GET', 'POST'])
 def upload_modele():
     project_name = load_current_project()
     form = ImportModel()
-    if form.validate_on_submit():
-        model_name= f"{project_name}_{form.nom.data}"
-        fichier = form.model.data
-        if (Path("output")/"train"/model_name).is_dir():
-            flash("Ce modèle existe déjà, merci de choisir un autre nom.")
-            return redirect(url_for('project.gestion_modeles'))
-        else:
-            os.makedirs((Path("output")/"train"/model_name))
-            os.makedirs((Path("output")/"train"/model_name/"weights"))
-            fichier = form.model.data
-            fichier.save((Path("output")/"train"/model_name/"weights"/"best.pt"))
-            if (Path("projects")/project_name/f"{project_name}.csv").is_file():
-                df = pd.read_csv(Path("projects")/project_name/f"{project_name}.csv")
-                dico = {"model_name": model_name, "use_model": "?", "img_size": "?" , "epochs": "?", "batch": "?", "workers": "?", "dropout": "?", "origine": "import", "classes": YOLO(Path("output")/"train"/model_name/"weights"/"best.pt").names }
-                df.loc[len(df)] = dico
-                df.to_csv(Path("projects")/project_name/f"{project_name}.csv", index =False)
-            else :
-                dico = {"model_name": model_name, "use_model": "?", "img_size": "?" , "epochs": "?", "batch": "?", "workers": "?", "dropout": "?", "origine": "import", "classes": YOLO(Path("output")/"train"/model_name/"weights"/"best.pt").names }
-                df = pd.DataFrame(dico, index=[0])
-                df.to_csv(Path("projects")/project_name/f"{project_name}.csv", index = False)
-            fichier = form.model.data
-            fichier.save((Path("output")/"train"/model_name/"weights"/"best.pt"))
-            
-            with open (Path("output")/"train"/model_name/ "labels.txt", "w") as f:
-                for key, val in (YOLO((Path("output")/"train"/model_name/"weights"/"best.pt")).names).items() :
-                    f.write(f"'{key}': '{val}'\n")
-            liste_urls =[] 
-            for index, row in df.iterrows():
-                path_model = Path.cwd()/"output"/"train"/row["model_name"]/ "weights"/"best.pt"
-                if os.path.isfile(path_model):
-                    liste_urls.append(f'<a href="/download/{path_model}" class="btn btn-primary btn-sm">Download</a>')
-                else:
-                    liste_urls.append(f"Erreur avec le modèle {row['model_name']}")
-            df["urls"]= liste_urls 
-            
-            return render_template("pages/gestion_modeles.html", tables=[df.to_html(classes='data', escape=False)], titles=df.columns.values, nom_projet = project_name, form = form)
-    else:
-        flash("Problème avec le formulaire.")
+
+    if not form.validate_on_submit():
+        for errors in form.errors.values():
+            for error in errors:
+                flash(error)
+        if not form.errors:
+            flash("Problème avec le formulaire.")
         return redirect(url_for('project.gestion_modeles'))
 
+    model_name = f"{project_name}_{form.nom.data}"
+    model_folder = Path("output") / "train" / model_name
+    weights_file = model_folder / "weights" / "best.pt"
 
+    if model_folder.is_dir():
+        flash("Ce modèle existe déjà, merci de choisir un autre nom.")
+        return redirect(url_for('project.gestion_modeles'))
 
-        
-        
-        
+    weights_file.parent.mkdir(parents=True)
+    form.model.data.save(weights_file)
+
+    # On vérifie que le fichier est bien un modèle YOLO, et on lit ses classes une seule fois.
+    try:
+        class_names = YOLO(weights_file).names
+    except Exception as e:
+        # Sans ce nettoyage, le dossier resterait et le nom serait bloqué (« ce modèle existe déjà »).
+        shutil.rmtree(model_folder)
+        print(f"Import du modèle impossible : {e}")
+        flash("Ce fichier n'est pas un modèle YOLO valide.")
+        return redirect(url_for('project.gestion_modeles'))
+
+    # Ajout du modèle au CSV des modèles du projet (créé s'il n'existe pas encore)
+    csv_file = Path("projects") / project_name / f"{project_name}.csv"
+    nouvelle_ligne = pd.DataFrame([{
+        "model_name": model_name, "use_model": "?", "img_size": "?", "epochs": "?", "batch": "?",
+        "workers": "?", "dropout": "?", "origine": "import", "classes": class_names}])
+    if csv_file.is_file():
+        df = pd.concat([pd.read_csv(csv_file), nouvelle_ligne], ignore_index=True)
+    else:
+        df = nouvelle_ligne
+    df.to_csv(csv_file, index=False)
+
+    # labels.txt au format lu par get_labels : 'id': 'nom' sur chaque ligne
+    with open(model_folder / "labels.txt", "w", encoding="utf-8") as f:
+        for key, val in class_names.items():
+            f.write(f"'{key}': '{val}'\n")
+
+    flash(f"Modèle {model_name} importé.")
+    # Redirection plutôt qu'affichage direct : la page de gestion construit déjà le tableau
+    # des modèles, et actualiser la page ne renverra pas le formulaire une 2e fois.
+    return redirect(url_for('project.gestion_modeles'))

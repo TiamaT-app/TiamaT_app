@@ -342,6 +342,14 @@ input[type="button"]:hover {
 .bouton[aria-busy="true"]::after { content: none; }
 button a { color: inherit; text-decoration: none; }
 
+/* Boutons de navigation en bas de page, centrés côte à côte */
+.boutons-retour {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
 /* Champs de formulaire */
 .champ { display: grid; gap: 0.4rem; margin-bottom: 1rem; }
 label {

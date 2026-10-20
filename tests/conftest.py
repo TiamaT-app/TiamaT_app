@@ -1,3 +1,5 @@
+import sys
+
 import pytest
 
 from app.app import app as flask_app
@@ -25,13 +27,22 @@ def espace_projets(tmp_path, monkeypatch):
     """Isole les tests dans un dossier temporaire, comme si l'app était lancée depuis là.
 
     - le dossier courant devient tmp_path : config.json, data/ et output/ y sont créés ;
-    - projects_folder (calculé une seule fois à l'import de project_service)
-      est redirigé vers tmp_path/projects.
+    - projects_folder est redirigé vers tmp_path/projects.
+
+    projects_folder est calculé une seule fois, au chargement de project_service,
+    et plusieurs routes l'importent avec « from ... import projects_folder ».
+    Chacune garde alors sa propre copie de la valeur : il faut la remplacer dans
+    chaque module de l'app qui la possède, pas seulement dans project_service.
 
     Aucun test ne peut ainsi toucher à tes vrais projets.
     """
     monkeypatch.chdir(tmp_path)
     dossier_projets = tmp_path / "projects"
     dossier_projets.mkdir()
-    monkeypatch.setattr(project_service, "projects_folder", dossier_projets)
+
+    vrai_dossier = project_service.projects_folder
+    for module in list(sys.modules.values()):
+        nom = getattr(module, "__name__", "") or ""
+        if nom.startswith("app.") and getattr(module, "projects_folder", None) == vrai_dossier:
+            monkeypatch.setattr(module, "projects_folder", dossier_projets)
     return tmp_path
