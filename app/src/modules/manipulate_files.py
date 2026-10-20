@@ -113,7 +113,7 @@ def exclude_training_images(files:list, img_use_for_training:list) -> list:
 
 def load_data_from_files(file_paths:list) -> list:
     """
-    This function reads data from a list of file paths and returns the contents as a list of strings. Each file is opened, 
+    This function reads data from a list of file paths and returns the contents as a list of Path. Each file is opened, 
     read line by line, and each line is stripped of any leading or trailing whitespace before being added to the result list.
     
     :param file_paths: 
@@ -121,8 +121,8 @@ def load_data_from_files(file_paths:list) -> list:
         - Description: A list of file paths to be read. Each file path should point to a text file containing data.
     
     :return: 
-        - Type: list of str
-        - Description: A list of strings, where each string is a line from the files specified in `file_paths`.
+        - Type: list of Path
+        - Description: A list of Paths, where each string is a line from the files specified in `file_paths`.
 
     This function is useful for consolidating data from multiple text files into a single list, making it easier to process 
     the combined data in subsequent steps.
