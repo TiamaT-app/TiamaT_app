@@ -77,13 +77,20 @@ def get_files(folder:str, extension:str) -> list:
 
     :param extension: 
         - Type: str
-        - Description: The file extension to filter by (e.g., 'txt', 'jpg'). The extension should not include a dot (e.g., use 'txt' not '.txt').
+        - Description: The file extension to filter by (e.g., 'txt', 'jpg').
+            The extension should not include a dot (e.g., use 'txt' not '.txt').
 
     :return: 
         - Type: list of str
         - Description: A list of file paths matching the specified extension within the provided folder.
     """
-    return list(Path(folder).rglob(f'*.{extension}'))
+    folder = Path(folder)
+    # Ignore hidden files and files inside hidden folders (.DS_Store, ._img.jpg on external drives, .ipynb_checkpoints…)
+    return [file for file in folder.rglob(f'*.{extension}')
+                if not any(part.startswith('.') for part in file.relative_to(folder).parts)]
+
+
+    return list()
 
 def exclude_training_images(files:list, img_use_for_training:list) -> list:
     """
@@ -156,10 +163,10 @@ def find_image_path(img_folder:Path, image_name: str) -> Path:
     Supported extensions are: .jpg, .jpeg, .png, .tiff
     """
 
-    for ext in {'.jpg', '.jpeg', '.png', '.tiff'}:
-        candidate = img_folder / f"{image_name}{ext}"
-        if candidate.exists():
-            return candidate
+    for ext in {'.jpg', '.jpeg', '.png', '.tif', '.tiff'}:
+        for candidate in (img_folder / f"{image_name}{ext}", img_folder / f"{image_name}{ext.upper()}"):
+            if candidate.exists():
+                return candidate
     raise FileNotFoundError(f"No image found for '{image_name}' in {img_folder}")
 
 def get_gt_project_id(ground_truth_folder: str| Path) -> int | None:
@@ -175,8 +182,7 @@ def get_gt_project_id(ground_truth_folder: str| Path) -> int | None:
     """
     for file in Path(ground_truth_folder).iterdir():
         if file.is_file() and not file.name.startswith('.'):
-            project_id = open_json_file(file)["project"]
-        return project_id
+            return open_json_file(file)["project"]
     return None
 
 def convert_gt_annotation_to_ls_task(json_file: str | Path) -> dict:
