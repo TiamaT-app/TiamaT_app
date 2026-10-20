@@ -1,0 +1,170 @@
+"""Tests des routes de gestion des projets : accueil, création, sélection, suppression."""
+
+import json
+
+import pandas as pd
+import pytest
+
+from app.services.project_service import create_project_structure
+
+
+def projet_courant(racine):
+    return json.loads((racine / "config.json").read_text())["CURRENT_PROJECT_NAME"]
+
+
+def definir_projet_courant(racine, nom):
+    (racine / "config.json").write_text(
+        json.dumps({"CURRENT_PROJECT_NAME": nom, "LAST_MODEL_PATH": ""}))
+
+
+# --- Accueil -------------------------------------------------------------------------
+
+def test_accueil_affiche_les_projets_existants(client, espace_projets):
+    create_project_structure("manuscrits")
+    reponse = client.get("/")
+    assert reponse.status_code == 200
+    assert "manuscrits" in reponse.get_data(as_text=True)
+
+
+# --- Création et sélection d'un projet ---------------------------------------------
+
+def test_creer_un_projet(client, espace_projets):
+    reponse = client.post("/accueil_projet", data={"nom": "manuscrits"})
+
+    assert reponse.status_code == 200
+    assert (espace_projets / "projects" / "manuscrits" / "image_inputs" / "ground_truth_images").is_dir()
+    assert projet_courant(espace_projets) == "manuscrits"
+
+
+def test_creer_un_projet_avec_accents(client, espace_projets):
+    reponse = client.post("/accueil_projet", data={"nom": "Lettrines_médiévales"})
+    assert reponse.status_code == 200
+    assert (espace_projets / "projects" / "Lettrines_médiévales").is_dir()
+
+
+def test_creer_un_projet_deja_existant(client, espace_projets):
+    create_project_structure("manuscrits")
+    definir_projet_courant(espace_projets, "incunables")
+
+    reponse = client.post("/accueil_projet", data={"nom": "manuscrits"})
+
+    assert reponse.status_code == 200
+    assert projet_courant(espace_projets) == "incunables"  # inchangé
+
+
+def test_choisir_un_projet_existant(client, espace_projets):
+    create_project_structure("manuscrits")
+    reponse = client.post("/accueil_projet", data={"projet_existant": "manuscrits"})
+    assert reponse.status_code == 200
+    assert projet_courant(espace_projets) == "manuscrits"
+
+
+def test_choisir_un_projet_qui_n_existe_pas(client, espace_projets):
+    # La liste déroulante n'accepte que les projets existants.
+    reponse = client.post("/accueil_projet", data={"projet_existant": "inexistant"})
+    assert reponse.status_code == 302
+    assert not (espace_projets / "projects" / "inexistant").exists()
+
+
+@pytest.mark.parametrize(
+    "nom",
+    ["../evasion", "sous/dossier", ".", "..", "nom avec espaces", "nom\nretour"],
+    ids=["remonte_d_un_niveau", "slash", "point", "point_point", "espaces", "retour_ligne"],
+)
+def test_creer_un_projet_nom_invalide(client, espace_projets, nom):
+    reponse = client.post("/accueil_projet", data={"nom": nom})
+
+    assert reponse.status_code == 302  # renvoyé vers l'accueil avec un message
+    assert not (espace_projets / "evasion").exists()
+    assert list((espace_projets / "projects").iterdir()) == []
+    assert not (espace_projets / "config.json").exists()
+
+
+def test_accueil_projet_sans_formulaire_redirige(client, espace_projets):
+    reponse = client.get("/accueil_projet")
+    assert reponse.status_code == 302
+    assert reponse.headers["Location"] == "/"
+
+
+# --- Gestion des modèles --------------------------------------------------------------
+
+def test_gestion_modeles_sans_modele(client, espace_projets):
+    create_project_structure("manuscrits")
+    definir_projet_courant(espace_projets, "manuscrits")
+    assert client.get("/gestion_modeles").status_code == 200
+
+
+def test_gestion_modeles_affiche_le_lien_de_telechargement(client, espace_projets):
+    create_project_structure("manuscrits")
+    definir_projet_courant(espace_projets, "manuscrits")
+    poids = espace_projets / "output" / "train" / "manuscrits_20260301_101500" / "weights"
+    poids.mkdir(parents=True)
+    (poids / "best.pt").write_bytes(b"")
+    pd.DataFrame({"model_name": ["manuscrits_20260301_101500"]}).to_csv(
+        espace_projets / "projects" / "manuscrits" / "manuscrits.csv", index=False)
+
+    page = client.get("/gestion_modeles").get_data(as_text=True)
+
+    assert "Download" in page
+    assert "Erreur avec le modèle" not in page
+
+
+# --- Suppression ----------------------------------------------------------------------
+
+def test_page_de_confirmation(client, espace_projets):
+    create_project_structure("manuscrits")
+    definir_projet_courant(espace_projets, "manuscrits")
+
+    page = client.get("/suppression_projet_check").get_data(as_text=True)
+
+    assert "manuscrits" in page
+    assert 'method="post"' in page  # la suppression passe par un formulaire, pas un lien
+
+
+def test_suppression_refuse_un_simple_lien(client, espace_projets):
+    # Visiter l'URL (lien, historique, préchargement) ne doit rien supprimer.
+    create_project_structure("manuscrits")
+    definir_projet_courant(espace_projets, "manuscrits")
+
+    reponse = client.get("/suppression_projet")
+
+    assert reponse.status_code == 405  # « méthode non autorisée »
+    assert (espace_projets / "projects" / "manuscrits").is_dir()
+
+
+def test_suppression_supprime_le_projet_courant(client, espace_projets):
+    create_project_structure("manuscrits")
+    create_project_structure("incunables")
+    definir_projet_courant(espace_projets, "manuscrits")
+
+    reponse = client.post("/suppression_projet")
+
+    assert reponse.status_code == 302
+    assert not (espace_projets / "projects" / "manuscrits").exists()
+    assert (espace_projets / "projects" / "incunables").is_dir()
+    # Le projet supprimé n'est plus le projet courant.
+    assert projet_courant(espace_projets) == ""
+
+
+def test_suppression_sans_projet_courant_ne_supprime_rien(client, espace_projets):
+    # Cas du config.json absent ou vide : load_current_project() renvoie "".
+    create_project_structure("manuscrits")
+    (espace_projets / "data" / "manuscrits").mkdir(parents=True)
+
+    reponse = client.post("/suppression_projet")
+
+    assert reponse.status_code == 302
+    assert (espace_projets / "projects" / "manuscrits").is_dir()
+    assert (espace_projets / "data" / "manuscrits").is_dir()
+
+
+def test_suppression_exige_le_jeton_csrf(app, client, espace_projets):
+    # Avec la protection CSRF active (comme dans l'app réelle), une requête POST
+    # venue d'ailleurs que du formulaire de confirmation ne supprime rien.
+    app.config["WTF_CSRF_ENABLED"] = True
+    create_project_structure("manuscrits")
+    definir_projet_courant(espace_projets, "manuscrits")
+
+    client.post("/suppression_projet")
+
+    assert (espace_projets / "projects" / "manuscrits").is_dir()

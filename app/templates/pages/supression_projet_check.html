@@ -2,6 +2,14 @@
 {% block body %}
 
 <p> Voulez-vous vraiment supprimer {{project_name}} ?   </p>
-<button><a href ="/supression_projet">OUI</a></button> <button><a href="/accueil_projet">NON</a></button>
+
+{# La suppression passe par un formulaire POST, avec son jeton CSRF (hidden_tag) :
+   un simple lien vers cette URL ne peut ainsi rien supprimer. #}
+<form method="post" action="{{ url_for('project.suppression_projet') }}">
+    {{ form.hidden_tag() }}
+    <button type="submit" class="btn btn-danger">OUI</button>
+    <a href="{{ url_for('project.accueil') }}" class="btn btn-secondary">NON</a>
+</form>
+ 
 
 {% endblock %}
