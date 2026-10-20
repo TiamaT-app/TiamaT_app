@@ -26,7 +26,7 @@ def which_device() -> str:
         dev = xm.xla_device()
         print(f"✅ Using TPU: {dev}")
         return "xla"
-    except ImportError:
+    except (ImportError, RuntimeError):
         pass  # torch_xla not installed or no TPU available
 
     # 4. CPU fallback
