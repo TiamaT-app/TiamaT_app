@@ -8,17 +8,16 @@ Routes d'import de fichiers dans le projet courant.
 from pathlib import Path
 import os
 import shutil
-import unicodedata
 
 import pandas as pd
 from ultralytics import YOLO
-from werkzeug.utils import secure_filename
 from app.app import app
 
 from flask import Blueprint, render_template, flash, redirect, url_for
 from flask_uploads import configure_uploads
 
 from ..src.models.formulaires import ImportModel, ImportImages, images as images_uploadees
+from ..src.scripts.get_training_data import normalized_image_name
 
 from app.services.config_service import load_current_project
 from app.services.project_service import projects_folder
@@ -27,31 +26,10 @@ from app.services.image_service import get_preview_images
 
 upload_bp = Blueprint("upload", __name__)
 
-# Lettres que la décomposition Unicode ne sépare pas de leur « accent »
-LIGATURES = str.maketrans({"œ": "oe", "Œ": "OE", "æ": "ae", "Æ": "AE", "ß": "ss"})
-
-
-def ascii_filename(filename: str) -> str:
-    """
-    Transforme un nom de fichier en nom sûr et sans accent, en conservant les lettres :
-    "épître_01.JPG" -> "epitre_01.jpg", "Œuvre complète.png" -> "OEuvre_complete.png".
-
-    secure_filename, utilisé seul, supprimerait les lettres accentuées ("épître" -> "pitre").
-    On retire donc d'abord les accents : la normalisation NFKD sépare chaque lettre de
-    son accent (é -> e + ´), puis l'encodage ASCII supprime les accents isolés.
-    """
-    stem, extension = os.path.splitext(filename)
-    stem = unicodedata.normalize("NFKD", stem.translate(LIGATURES))
-    stem = stem.encode("ascii", "ignore").decode("ascii")
-    # secure_filename remplace les espaces par des _ et retire / \ .. et autres caractères risqués.
-    # Un nom entièrement non latin (grec, cyrillique...) deviendrait vide : on le remplace par "image".
-    stem = secure_filename(stem) or "image"
-    return stem + extension.lower()
-
-
 def save_without_overwriting(fichier, folder: Path) -> tuple[str | None, bool]:
     """
-    Enregistre l'image envoyée dans folder sous un nom ASCII, sans jamais écraser ni dupliquer.
+    Enregistre l'image envoyée dans folder sous un nom normalisé (normalized_image_name,
+    la même règle que clean_image_name), sans jamais écraser ni dupliquer.
 
     - si une image identique (même contenu) existe déjà sous ce nom ou une variante
       (nom_1.jpg...), rien n'est enregistré : renvoie (None, False) ;
@@ -61,7 +39,7 @@ def save_without_overwriting(fichier, folder: Path) -> tuple[str | None, bool]:
     - sinon : renvoie (nom_enregistre, False).
     """
     contenu = fichier.read()
-    nom = ascii_filename(fichier.filename)
+    nom = normalized_image_name(fichier.filename)
     stem, extension = os.path.splitext(nom)
 
     candidat, numero = nom, 0
@@ -102,7 +80,7 @@ def upload():
         list_img.append(nom_enregistre)
         if renommee:
             flash(f"{fichier.filename} enregistrée sous {nom_enregistre} : "
-                  f"une autre image du projet porte déjà le nom {ascii_filename(fichier.filename)}.")
+                  f"une autre image du projet porte déjà le nom {normalized_image_name(fichier.filename)}.")
 
     if deja_presentes:
         flash(f"{deja_presentes} image(s) déjà présente(s) dans le projet, non importée(s) à nouveau.")

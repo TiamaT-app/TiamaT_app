@@ -11,7 +11,6 @@ import pandas as pd
 import pytest
 
 import app.routes.upload_routes as upload_routes
-from app.routes.upload_routes import ascii_filename
 from app.services.project_service import create_project_structure
 
 
@@ -119,21 +118,6 @@ def test_upload_renvoi_d_une_image_renommee_ne_cree_pas_de_doublon(client, proje
                 data={"fichiers": [fichier("folio_è.jpg", b"image-2")]})
 
     assert sorted(p.name for p in images.iterdir()) == ["folio_e.jpg", "folio_e_1.jpg"]
-
-
-@pytest.mark.parametrize(
-    "nom, attendu",
-    [
-        ("épître_01.jpg", "epitre_01.jpg"),
-        ("Œuvre complète.PNG", "OEuvre_complete.png"),
-        ("Bibliothèque nationale f°12.jpeg", "Bibliotheque_nationale_f12.jpeg"),
-        ("../../evasion.jpg", "evasion.jpg"),
-        ("Ελληνικά.jpg", "image.jpg"),
-    ],
-    ids=["accents", "ligature_et_majuscules", "espaces_et_symbole", "remontee", "non_latin"],
-)
-def test_ascii_filename(nom, attendu):
-    assert ascii_filename(nom) == attendu
 
 
 # --- Import d'un modèle ------------------------------------------------------------------
