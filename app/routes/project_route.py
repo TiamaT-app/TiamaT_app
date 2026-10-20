@@ -7,7 +7,6 @@ Routes de gestion des projets TiamaT.
                          (route "/accueil_projet"), qui cree aussi l'arborescence
                          de dossiers du projet si elle n'existe pas encore.
 - gestion_modeles()    : liste des modeles du projet courant, avec lien de telechargement
-- check_projet()       : page de confirmation avant suppression du projet courant
 - suppression_projet() : suppression du projet courant (POST uniquement)
  
 Tous les projets vivent sous projects_folder (projects/{nom_du_projet}/).
@@ -117,12 +116,6 @@ def gestion_modeles():
     return render_template("pages/gestion_modeles.html", tables=[df.to_html(classes='data', escape=False)],
                            titles=df.columns.values, nom_projet=project_name, form=form)
  
- 
-@project_bp.route("/suppression_projet_check", methods=["GET", "POST"])
-def check_projet():
-    project_name = load_current_project()
-    return render_template("pages/supression_projet_check.html",
-                           project_name=project_name, form=ConfirmationSuppression())
  
  
 # POST uniquement : une suppression ne doit jamais pouvoir se déclencher

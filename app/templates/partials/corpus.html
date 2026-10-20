@@ -98,7 +98,10 @@
     <p>Les images, les annotations et les modèles de ce projet seront supprimés définitivement.</p>
     <div class="actions">
       <button type="button" class="bouton bouton--doux" data-fermer>Annuler</button>
-      <a class="bouton bouton--rouge" href="{{ url_for('project.suppression_projet') }}">Supprimer définitivement</a>
+      <form method="post" action="{{ url_for('project.suppression_projet') }}" style="display: contents">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="bouton bouton--rouge">Supprimer définitivement</button>
+      </form>
     </div>
   </dialog>
 </div>

@@ -111,14 +111,6 @@ def test_gestion_modeles_affiche_le_lien_de_telechargement(client, espace_projet
 
 # --- Suppression ----------------------------------------------------------------------
 
-def test_page_de_confirmation(client, espace_projets):
-    create_project_structure("manuscrits")
-    definir_projet_courant(espace_projets, "manuscrits")
-
-    page = client.get("/suppression_projet_check").get_data(as_text=True)
-
-    assert "manuscrits" in page
-    assert 'method="post"' in page  # la suppression passe par un formulaire, pas un lien
 
 
 def test_suppression_refuse_un_simple_lien(client, espace_projets):
@@ -168,3 +160,9 @@ def test_suppression_exige_le_jeton_csrf(app, client, espace_projets):
     client.post("/suppression_projet")
 
     assert (espace_projets / "projects" / "manuscrits").is_dir()
+
+def test_bouton_de_suppression_envoie_un_formulaire(client, espace_projets):
+    # Le bouton « Supprimer définitivement » doit envoyer un POST, pas suivre un lien.
+    page = client.post("/accueil_projet", data={"nom": "manuscrits"}).get_data(as_text=True)
+    assert 'action="/suppression_projet"' in page
+    assert 'href="/suppression_projet"' not in page
