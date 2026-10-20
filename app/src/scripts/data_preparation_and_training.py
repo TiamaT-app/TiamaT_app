@@ -1,16 +1,13 @@
 import shutil
 import random
+import traceback
 from pathlib import Path
-from datetime import datetime
 import os
 
 import cv2
 import yaml
-import torch
 import numpy as np
 from ultralytics import YOLO
-import matplotlib.pyplot as plt
-
 
 
 from ..modules.folders_path import get_data_folder
@@ -18,36 +15,68 @@ from ..modules.device_function import which_device
 from ..modules.generate_labels import get_labels
 from ..modules.corners_functions import get_corners, from_corners_to_relative
 
+IMG_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
+
+# Suffixe des images creees par l'augmentation de donnees (f1.jpg -> f1_PT.jpg)
+AUGMENTED_SUFFIX = "_PT"
+
+
+def _list_images(folder: Path) -> list[Path]:
+    """Images du dossier, sans les fichiers caches (._f1.jpg crees par macOS sur les disques externes)."""
+    return [img for img in Path(folder).iterdir()
+            if img.suffix.lower() in IMG_EXTENSIONS and not img.name.startswith('.')]
+
+
+def _original_stem(stem: str) -> str:
+    """Nom de l'image d'origine d'une image augmentee : "f1_PT" -> "f1" ("f1" reste "f1")."""
+    return stem.removesuffix(AUGMENTED_SUFFIX)
+
+
+def _delete_augmented_copy(img_file: Path, labels_folder: Path) -> None:
+    """Supprime une image augmentee (f1_PT.jpg) et son annotation (f1_PT.txt)."""
+    img_file.unlink(missing_ok=True)
+    (labels_folder / f"{img_file.stem}.txt").unlink(missing_ok=True)
+
+
+def _dataset_folders(project_folder: str | Path) -> dict[str, Path]:
+    """Dossiers utilises pendant l'entrainement (data/ du projet et datasets/ temporaire)."""
+    data_folder = Path(get_data_folder(project_folder))
+    project_name = Path(project_folder).name
+    dataset_folder = data_folder.parent / 'datasets' / project_name
+    return {
+        "data": data_folder,
+        "images": data_folder / 'images',
+        "labels": data_folder / 'labels',
+        "dataset": dataset_folder,
+        "img_train": dataset_folder / 'images' / 'train',
+        "img_val": dataset_folder / 'images' / 'val',
+        "labels_train": dataset_folder / 'labels' / 'train',
+        "labels_val": dataset_folder / 'labels' / 'val',
+        "yaml": dataset_folder / f"{project_name}.yaml",
+    }
+
+
 def clean_comma(project_folder:str | Path) -> None:
     """
     This function removes any commas that may appear in the annotation `.txt` files within the specified training folder.
-    This is particularly useful when annotation files are generated or modified from CSV files, 
+    This is particularly useful when annotation files are generated or modified from CSV files,
     as commas can accidentally be included and cause issues during model training.
 
-    :param project_folder: 
+    :param project_folder:
         - Type: str
         - Description: The absolute path to the folder named after the project.
 
-    :return: 
+    :return:
         - Type: None
         - Description: This function modifies `.txt` files in place, removing any commas that are found.
-
-    This function ensures that annotation files are formatted correctly, preventing errors during the training process.
     """
-    data_folder = Path(get_data_folder(project_folder))
-    labels_folder = data_folder / 'labels'
-    
-    for file in labels_folder.iterdir():
-        if file.is_file() and file.suffix.lower() == '.txt':       
-            # Read the file content
-            with open(file, 'r') as f:
-                content = f.read()
-            # Remove commas
-            content_without_comma = content.replace(',', '')
-            
-            # Write the modified content in the file
-            with open(file, 'w') as file:
-                file.write(content_without_comma)
+    labels_folder = _dataset_folders(project_folder)["labels"]
+
+    for label_file in labels_folder.iterdir():
+        if label_file.is_file() and label_file.suffix.lower() == '.txt':
+            content = label_file.read_text(encoding='utf-8')
+            label_file.write_text(content.replace(',', ''), encoding='utf-8')
+
 
 def perspective_transformation(img_file:str) -> np.ndarray:
     """
@@ -71,7 +100,6 @@ def perspective_transformation(img_file:str) -> np.ndarray:
     -----
     - The transformation randomly resizes the width and height to 30–80% of the original dimensions.
     - The output image is saved in the same directory as the input.
-    - Useful for generating training data with varied viewpoints.
     """
 
     # Open image and get dimensions
@@ -97,65 +125,40 @@ def perspective_transformation(img_file:str) -> np.ndarray:
 
     # Save the transformed image in the output folder
     img_path = Path(img_file)
-    new_filename = f"{img_path.stem}_PT{img_path.suffix}"
-    transformed_img_path = img_path.with_name(new_filename)
+    transformed_img_path = img_path.with_name(f"{img_path.stem}{AUGMENTED_SUFFIX}{img_path.suffix}")
 
     cv2.imwrite(str(transformed_img_path), dst)
 
     return M
 
+
 def perspective_transformation_annotation(ann_file:str, img_file:str, M:np.ndarray) -> list:
-    """ 
-    This function applies a perspective transformation matrix to the bounding box annotations of an image 
+    """
+    This function applies a perspective transformation matrix to the bounding box annotations of an image
     and saves the new transformed annotations in a separate file. The transformed annotations correspond to
     the modified perspective and dimensions of the image after applying the perspective transformation.
 
-    :param ann_file: 
-        - Type: str
-        - Description: The absolute path to the annotation file (`.txt`) associated with the image. 
-                       The file should contain bounding box annotations in YOLO format 
-                       (label, x_center, y_center, width, height).
-
-    :param img_file: 
-        - Type: str
-        - Description: The absolute path to the original image file. This is used to retrieve 
-                       the original image dimensions and the dimensions of the transformed image.
-
-    :param M: 
-        - Type: numpy.ndarray
-        - Description: The transformation matrix used for perspective transformation. This matrix 
-                       is used to transform the bounding box coordinates to match the new image perspective.
-
-    :return: 
-        - Type: list of tuples
-        - Description: Returns a list of transformed bounding box annotations. Each tuple contains 
-                       the label and new relative coordinates (x_center, y_center, width, height) 
-                       after applying the perspective transformation.
-
-    The function ensures that the bounding box annotations remain consistent with the perspective changes applied to the image,
-    which is essential for maintaining annotation accuracy after transformations.
+    :param ann_file: absolute path to the YOLO annotation file (label, x_center, y_center, width, height).
+    :param img_file: absolute path to the original image file.
+    :param M: transformation matrix returned by perspective_transformation.
+    :return: list of transformed annotations (label, x_center, y_center, width, height), in relative coordinates.
     """
 
     img_height, img_width = cv2.imread(img_file).shape[:2]
     img_path = Path(img_file)
-    new_filename = f"{img_path.stem}_PT{img_path.suffix}"
-    transformed_img_path = img_path.with_name(new_filename)
+    transformed_img_path = img_path.with_name(f"{img_path.stem}{AUGMENTED_SUFFIX}{img_path.suffix}")
     TP_img_height, TP_img_width = cv2.imread(str(transformed_img_path)).shape[:2]
-    
-    # print(f"Origal size: {img_height}, {img_width}\nNew size: {TP_img_height}, {TP_img_width}")
 
-    # Initialising a list to store the new bounding box coordinates 
+    # Initialising a list to store the new bounding box coordinates
     bb_coordinates = []
 
-    with open(ann_file, 'r') as annotations:
+    with open(ann_file, 'r', encoding='utf-8') as annotations:
         for line in annotations:
             if not line.strip():
                 continue #skip empty lines
 
             # Extraire les coordonnées de l'annotation
             label, x_center, y_center, width, height = line.strip().split()
-            
-            #print(type(label), type(x_center), type(y_center), type(width), type(height))
 
             # Convertir les coordonnées relatives en coordonnées absolues
             corners = get_corners(x_center, y_center, width, height, img_width, img_height)
@@ -168,58 +171,44 @@ def perspective_transformation_annotation(ann_file:str, img_file:str, M:np.ndarr
             new_upper_left = transformed_corners[0]
             new_bottom_right = transformed_corners[2]
 
-            #print(f'new_upper_left = {new_upper_left}, new_bottom_right = {new_bottom_right}')
-
             # Transformer les nouvelles coordonnés en relatives
             transformed_x_center, transformed_y_center, transformed_width, transformed_height = from_corners_to_relative(
                 new_upper_left, new_bottom_right, TP_img_width, TP_img_height)
 
             bb_coordinates.append((label, transformed_x_center, transformed_y_center, transformed_width, transformed_height))
-    
-    annotations_path = Path(ann_file)
-    new_annotations_filename = f"{annotations_path.stem}_PT{annotations_path.suffix}"
-    new_annotation_path = annotations_path.with_name(new_annotations_filename)
 
-    with open(new_annotation_path, 'w') as transformed_annotations:
+    annotations_path = Path(ann_file)
+    new_annotation_path = annotations_path.with_name(f"{annotations_path.stem}{AUGMENTED_SUFFIX}{annotations_path.suffix}")
+
+    with open(new_annotation_path, 'w', encoding='utf-8') as transformed_annotations:
         for bb in bb_coordinates:
             label, x, y, w, h = bb
             transformed_annotations.write(f"{int(label)} {x:.6f} {y:.6f} {w:.6f} {h:.6f}\n")
 
-
     return bb_coordinates
+
 
 def generate_transformed_data(project_folder:str | Path) -> None:
     """
-    This function generates a set of transformed images and their corresponding annotations by applying 
-    perspective transformations to each image and adjusting the bounding box annotations accordingly. 
-    The new images and annotations are saved in the appropriate folders within the specified training folder.
+    Generates one transformed copy (suffix _PT) of each annotated image of data/images,
+    with its adjusted annotation file in data/labels.
 
-    :param project_folder: 
-        - Type: str
-        - Description: The absolute path to the folder named after the project.
-
-    :return: 
-        - Type: None
-        - Description: This function does not return a value. It generates transformed images and annotation files 
-                       in place, saving them in the same subdirectories with modified filenames.
-
-    This function automates the data augmentation process by generating new variations of the dataset, 
-    which can be used to enhance model robustness during training.
+    Images that are themselves augmented copies (f1_PT.jpg) are skipped: without this,
+    each training cycle would transform the copies of the previous cycle again
+    (f1_PT_PT.jpg, f1_PT_PT_PT.jpg...) and the dataset would double at every cycle.
+    The copies of the original images are regenerated (overwritten) at each training.
     """
-    
-    print('Image tranformation has started..')
-    
-    data_folder = Path(get_data_folder(project_folder))
-    labels_folder = data_folder / 'labels'
-    img_folder = data_folder / 'images'
 
-    img_exts = {".jpg", ".jpeg", ".png", ".tiff"}
-    images = [img for img in img_folder.iterdir() if img.suffix.lower() in img_exts]
+    print('Image tranformation has started..')
+
+    folders = _dataset_folders(project_folder)
+    labels_folder, img_folder = folders["labels"], folders["images"]
+
+    images = [img for img in _list_images(img_folder) if not img.stem.endswith(AUGMENTED_SUFFIX)]
 
     for img_file in images:
-        img_name = img_file.stem
-        ann_file = labels_folder / f"{img_name}.txt"
-        
+        ann_file = labels_folder / f"{img_file.stem}.txt"
+
         if ann_file.exists():
             try:
                 M = perspective_transformation(str(img_file))
@@ -229,55 +218,33 @@ def generate_transformed_data(project_folder:str | Path) -> None:
 
     print(f'New images stored in {img_folder}\nNew annotations stored in {labels_folder}')
 
+
 def create_training_dataset(project_folder:str | Path, pretrained_model:str | None, preexisting_distribution:bool) -> None:
     """
     Prepares training and validation datasets from a directory of images and labels.
-    Generates:
-    1. traindata.txt – 80% of images
-    2. valdata.txt – 20% of images
+    Generates, in data/dataset_statistics/:
+    1. traindata.txt – about 80% of the images
+    2. valdata.txt – about 20% of the images
     3. training_dataset.txt – all images
 
+    The split is made on the original images, and augmented copies (f1_PT.jpg) only go
+    to the training set: the validation set contains original images only. Otherwise the
+    model would be validated on near-copies of its training images (or on artificial
+    images), and the validation metrics would be overestimated. The augmented copies of
+    the validation images are deleted.
+
     If a pre-existing split is provided, it's reused. Otherwise, a new random split is created.
-    Images and labels are copied into organized folders for training and validation.
+    Images and labels are moved into organized folders for training and validation.
 
-    Parameters
-    ----------
-
-    :param project_folder: 
-        - Type: str
-        - Description: The absolute path to the folder named after the project.
-
-    :param pretrained_model: 
-        - Type: str
-        - Description: The absolute path to the folder containing the pre-trained model data. 
-                       This parameter is currently unused in the function but may be required for future enhancements.
-
-    :param preexisting_distribution: 
-        - Type: bool
-        - Description: If `preexisting_distribution` is True, the function reuses a previous train/val split from 
-                        the `pretrained_model` folder. Otherwise, it creates a new random split.
-
-
-    :return: 
-        - Type: None
-        - Description: This function does not return a value. It creates and saves the text files 
-                       `traindata.txt`, `valdata.txt`, and `training_dataset.txt` and organizes the images 
-                       and labels into separate subdirectories for training and validation.
-
-    This function ensures that the training and validation data are correctly organized and ready for model training.
+    :param project_folder: the absolute path to the folder named after the project.
+    :param pretrained_model: folder of a previous model, used only with preexisting_distribution.
+    :param preexisting_distribution: if True, reuses the train/val split saved in pretrained_model.
+    :raises ValueError: if there are less than 2 images (one is needed for training, one for validation).
     """
-    
-    data_folder = Path(get_data_folder(project_folder))
-    project_name = Path(project_folder).name
 
-    img_folder = data_folder / 'images'
-    img_train_folder = data_folder.parent / 'datasets' / project_name / 'images' / 'train'
-    img_val_folder = data_folder.parent / 'datasets' / project_name / 'images' / 'val'
+    folders = _dataset_folders(project_folder)
+    data_folder, img_folder = folders["data"], folders["images"]
 
-    labels_folder = data_folder / 'labels'
-    labels_train_folder = data_folder.parent / 'datasets' / project_name / 'labels' / 'train'
-    labels_val_folder = data_folder.parent / 'datasets' / project_name / 'labels' / 'val'
-    
     data_stat_folder = data_folder / 'dataset_statistics'
     data_stat_folder.mkdir(parents=True, exist_ok=True)
 
@@ -285,80 +252,59 @@ def create_training_dataset(project_folder:str | Path, pretrained_model:str | No
     val_data = data_stat_folder / 'valdata.txt'
     training_dataset = data_stat_folder / 'training_dataset.txt'
 
-    
-    img_exts = {".jpg", ".jpeg", ".png", ".tiff"}
-
     if preexisting_distribution:
-        if pretrained_model:
-            print(f'Use pre-existing files from {pretrained_model}.')
-            previous_distribution = Path(pretrained_model) / 'dataset_statistics'
-            if not previous_distribution.exists():
-                raise FileNotFoundError(f"No dataset_statistics found in {pretrained_model}")
-            shutil.copytree(previous_distribution, data_stat_folder, dirs_exist_ok=True)
-            # TODO: Copy yaml file
-
-        else:
-            pretrained_model = str(input("Please indicate the path to the pre-trained model folder: "))
-            if not isinstance(pretrained_model, str):
-                raise TypeError(f"The pre-trained model folder path must be a string, not {type(pretrained_model)}")
+        if not pretrained_model:
+            raise ValueError("A pre-trained model folder is needed to reuse a pre-existing distribution.")
+        print(f'Use pre-existing files from {pretrained_model}.')
+        previous_distribution = Path(pretrained_model) / 'dataset_statistics'
+        if not previous_distribution.exists():
+            raise FileNotFoundError(f"No dataset_statistics found in {pretrained_model}")
+        shutil.copytree(previous_distribution, data_stat_folder, dirs_exist_ok=True)
 
     else:
-        # Get a list of the images
-        image_files = [img for img in img_folder.iterdir() if img.suffix.lower() in img_exts]
+        image_files = _list_images(img_folder)
         if not image_files:
             raise ValueError(f"No images found in {img_folder}. Please check your dataset.")
 
-        # Shuffle file names randomly
-        random.shuffle(image_files)
+        # Group each original image with its augmented copy, then split the groups
+        groups: dict[str, list[Path]] = {}
+        for image_file in sorted(image_files):
+            groups.setdefault(_original_stem(image_file.stem), []).append(image_file)
 
+        originals = sorted(groups)
+        if len(originals) < 2:
+            raise ValueError("Au moins 2 images annotées sont nécessaires : une pour l'entraînement, une pour la validation.")
+        random.shuffle(originals)
 
         # TODO: Add sklearn stratified split here for balanced class distribution
 
-        # Calcul le nombre d'images pour chaque ensemble
-        num_images = len(image_files)
-        num_train = int(num_images * 0.8)
-        num_val = int(num_images - num_train)
-
-        # Divide file names into two sets : one for the training, one for the validation
-        train_files = image_files[:num_train]
+        # About 80% for training, but always at least one image in each set
+        num_train = min(max(int(len(originals) * 0.8), 1), len(originals) - 1)
+        train_files = [img for original in originals[:num_train] for img in groups[original]]
+        val_files = []
+        for original in originals[num_train:]:
+            for img in groups[original]:
+                if img.stem.endswith(AUGMENTED_SUFFIX):
+                    _delete_augmented_copy(img, folders["labels"])
+                else:
+                    val_files.append(img)
         print(f"{len(train_files)} images assigned to training.")
-        val_files = image_files[num_train:num_train+num_val]
         print(f"{len(val_files)} images assigned to validation.")
-        
 
-        # Create a file with the list for the train data
-        with open(train_data, 'w') as f:
-            for image_file in train_files:
-                f.write(str(image_file) + "\n")
-        print(f"File created: {train_data}")
-
-        # Create a file with the list for valdidation data
-        with open(val_data, 'w') as f:
-            for image_file in val_files:
-                f.write(str(image_file) + "\n")
-        print(f"File created: {val_data}")
-
-
-        # Create a file with all the dataset
-        with open(training_dataset, 'w') as f:
-            for image_file in image_files:
-                    f.write(str(image_file) + "\n")
-            print(f"File created: {training_dataset}")
-    
+        all_files = train_files + val_files
+        for list_file, files in [(train_data, train_files), (val_data, val_files), (training_dataset, all_files)]:
+            list_file.write_text("".join(f"{image_file}\n" for image_file in files), encoding='utf-8')
+            print(f"File created: {list_file}")
 
     # Split images and txt files into folders from a .txt file
-    split_data_for_training(str(train_data), 
-                            str(labels_folder),
-                            str(img_train_folder),
-                            str(labels_train_folder))
-    
-    split_data_for_training(str(val_data),
-                            str(labels_folder),
-                            str(img_val_folder),
-                            str(labels_val_folder))
-    
+    split_data_for_training(str(train_data), str(folders["labels"]),
+                            str(folders["img_train"]), str(folders["labels_train"]))
+    split_data_for_training(str(val_data), str(folders["labels"]),
+                            str(folders["img_val"]), str(folders["labels_val"]))
+
     # Create the yaml file
     write_yaml_file(project_folder)
+
 
 def split_data_for_training(img_list:str, labels_folder:str, output_img_folder:str, output_labels_folder:str) -> None:
     """
@@ -368,51 +314,37 @@ def split_data_for_training(img_list:str, labels_folder:str, output_img_folder:s
     ----------
     img_list : str
         Path to a `.txt` file containing absolute paths to image files (one per line).
-
     labels_folder : str
         Path to the folder containing corresponding `.txt` YOLO annotation files.
-
     output_img_folder : str
         Destination folder where the images will be moved (e.g., images/train or images/val).
-
     output_labels_folder : str
         Destination folder where the annotation `.txt` files will be moved (e.g., labels/train or labels/val).
-
-    Returns
-    -------
-    None
-        Files are moved into the specified YOLO directory structure.
     """
-
 
     # Create the output folder if it does not already exist
     Path(output_img_folder).mkdir(parents=True, exist_ok=True)
     Path(output_labels_folder).mkdir(parents=True, exist_ok=True)
-    
-    # Open the text file containing the image paths
-    with open(img_list, "r") as f:
-        # Browse through each line of the file
-        for line in f:
-            # Get the image path and text file name
-            image_path = Path(line.strip())
-            image_name = image_path.stem
 
-            txt_file = Path(labels_folder) / f"{image_name}.txt"
+    with open(img_list, "r", encoding='utf-8') as f:
+        for line in f:
+            if not line.strip():
+                continue
+            image_path = Path(line.strip())
+            txt_file = Path(labels_folder) / f"{image_path.stem}.txt"
 
             try:
-                # Copy image to output folder
                 shutil.move(str(image_path), str(Path(output_img_folder) / image_path.name))
             except FileNotFoundError:
                 print(f"Image file {image_path} not found.")
-        
-            # Copy text file to output folder
+
             try:
                 shutil.move(str(txt_file), str(Path(output_labels_folder) / txt_file.name))
-
             except FileNotFoundError:
                 print(f'Text file {txt_file} does not exist')
     print(f'Image files move in {output_img_folder}')
     print(f'Text files move in {output_labels_folder}')
+
 
 def write_yaml_file(project_folder:str | Path) -> None:
     """
@@ -421,128 +353,62 @@ def write_yaml_file(project_folder:str | Path) -> None:
     - Train and validation folder structure
     - Class label mapping from `labels.txt`
 
-    Parameters
-    ----------
-    project_folder : str
-        Absolute path to the root project folder. Must contain a `labels.txt` file 
-        and will be used to locate or generate the `datasets/<project_name>` directory.
-
-    Returns
-    -------
-    None
-        Writes a YAML file in the datasets folder for YOLO training.
+    The file is written with the yaml library rather than by hand, so that a class
+    name containing a quote or a colon ("lettrine d'or") still gives a valid file.
     """
 
-    data_folder = Path(get_data_folder(project_folder))
-    project_name = Path(project_folder).name
+    folders = _dataset_folders(project_folder)
+    labels_file = folders["data"] / 'labels.txt'
 
-    dataset_folder = data_folder.parent / 'datasets' / project_name
-    labels_file = data_folder / 'labels.txt'
-    yaml_path = dataset_folder / f"{project_name}.yaml"
+    annotation_classes = {int(key): value for key, value in get_labels(labels_file).items()}
 
-    # Get the annotations classes
-    annotation_classes = get_labels(labels_file)
-    
-    # Convertir les clés du dictionnaire annotation_classes en entiers
-    annotation_classes_int = {int(key): value for key, value in annotation_classes.items()}
+    yaml_data = {
+        "path": str(folders["dataset"]),
+        "train": "images/train",
+        "val": "images/val",
+        "names": annotation_classes,
+    }
 
-    # Formater la chaîne avec les éléments dans l'ordre souhaité
-    yaml_data = [
-        f"path: {dataset_folder}",
-        f"train: 'images/train'",
-        f"val: 'images/val'",
-        "",
-        f"#class names",
-        f"names:"]
-    
-    for class_id, label in annotation_classes_int.items():
-        yaml_data.append(f"  {class_id}: '{label}'")
-        
-        # TODO: Ajouter Albumentation
+    folders["dataset"].mkdir(parents=True, exist_ok=True)
+    with open(folders["yaml"], 'w', encoding='utf-8') as yaml_file:
+        yaml.safe_dump(yaml_data, yaml_file, allow_unicode=True, sort_keys=False)
 
-    with open(yaml_path, 'w') as yaml_file:
-        yaml_file.write('\n'.join(yaml_data))
+    print(f"File written to {folders['yaml']}")
 
-    print(f"File written to {yaml_path}")
 
-def yolo_training(project_folder:str | Path, use_model:str, img_size:int, 
+def yolo_training(project_folder:str | Path, use_model:str, img_size:int,
                   epochs:int, batch:int, workers:int, dropout:float, model_name:str,
                   pretrained_model:str | None) -> str:
     """
     Trains a YOLO model using a specified dataset and configuration.
 
-    :param project_folder: 
-        - Type: str
-        - Description: The absolute path to the folder named after the project.
-
-    :param use_model: 
-        - Type: str
-        - Description: The YOLO model architecture to use for training (e.g., 'yolo26s.pt'). 
-                       If a pre-trained model is provided, this parameter is overridden.
-
-    :param img_size: 
-        - Type: int
-        - Description: The size of the input images. Larger image sizes can increase model accuracy 
-                       but may also increase computational load.
-
-    :param epochs: 
-        - Type: int
-        - Description: The number of epochs to train the model. More epochs allow the model to learn 
-                       better but may result in overfitting if set too high.
-
-    :param batch: 
-        - Type: int
-        - Description: The batch size to use during training. Larger batch sizes require more memory 
-                       but can stabilize gradient updates.
-
-    :param workers: 
-        - Type: int
-        - Description: The number of workers for data loading. Increasing this number can speed up data 
-                       loading but may require more computational resources.
-
-    :param dropout: 
-        - Type: float
-        - Description: The dropout factor applied to the labels to prevent overconfidence in predictions. 
-                       Typically set between 0 and 1.
-
-    :param pretrained_model: 
-        - Type: str
-        - Description: The path to a pre-trained model, if any. If provided, the function will use this model 
-                       as the starting point for training. If not provided, it uses the `use_model` parameter 
-                       to select the model architecture.
-
-    :return: 
-        - Type: None
-        - Description: This function does not return a value. It trains the YOLO model using the provided 
-                       parameters and saves the results to a specified output folder.
-
-    This function automates the YOLO training process, providing flexibility in configuration and managing results storage.
+    :param project_folder: the absolute path to the folder named after the project.
+    :param use_model: the YOLO model to start from (e.g., 'yolo26s.pt' or the best.pt of a previous model).
+    :param img_size: the size of the input images.
+    :param epochs: the number of epochs to train the model.
+    :param batch: the batch size (-1 for AutoBatch).
+    :param workers: the number of workers for data loading.
+    :param dropout: the dropout factor, between 0 and 1.
+    :param model_name: name of the output folder, in output/train/.
+    :param pretrained_model: path to a pre-trained model, if any; overrides use_model.
+    :return: the name of the model folder.
     """
-    
-    # Derive additional paths and model name
-    data_folder = Path(get_data_folder(project_folder))
-    project_folder_path = Path(project_folder)
-    project_name = project_folder_path.name
 
-    dataset_folder = data_folder.parent / 'datasets' / project_name
-    yaml_file = dataset_folder / f"{project_name}.yaml"
+    folders = _dataset_folders(project_folder)
+    project_name = Path(project_folder).name
+    yaml_file = folders["yaml"]
 
-
-    # Check if yaml_file exists
     if not yaml_file.exists():
         raise FileNotFoundError(f"YAML file not found: {yaml_file}")
 
     # Determine which model to use
-    if pretrained_model == None:
-        model_name = model_name
-        # model_name = f'{str(project_name)}_{date}_{use_model}_i{img_size}_e{epochs}_b{batch}_w{workers}'
-    else:
+    if pretrained_model is not None:
         use_model = pretrained_model
         model_name = f'{model_name}_{Path(use_model).stem}'
 
     # Check if the GPU is available - if not, use the CPU
     device = which_device()
-    
+
     # Load a YOLO model
     model = YOLO(use_model).to(device)
 
@@ -562,158 +428,112 @@ def yolo_training(project_folder:str | Path, use_model:str, img_size:int,
     model.val(
         name = f"{model_name}/{str(project_name)}_val",
         project = Path.cwd() / 'output' / 'train')
-    
+
     print(f"Training completed. Validation results saved to {model_name}/{str(project_name)}_val")
     return model_name
+
 
 def resume_training(project_folder:str, interrupted_model_folder:str) -> None:
     """
     Resumes an interrupted YOLO model training session from the last saved checkpoint.
 
-    Parameters
-    ----------
-    project_folder : str
-        Path to the root project folder (used to derive output path).
-    
-    interrupted_model_folder : str
-        Path to the folder containing the partially trained model's data. 
-        This folder must include a 'weights/last.pt' file.
-
-    Returns
-    -------
-    None
-        Resumes training and evaluates the model. Results are saved in the same folder.
+    :param project_folder: path to the root project folder.
+    :param interrupted_model_folder: folder of the partially trained model, with a 'weights/last.pt' file.
     """
     last_weight = Path(interrupted_model_folder) / 'weights' / 'last.pt'
-    
+
     if not last_weight.exists():
         raise FileNotFoundError(f"No checkpoint found at {last_weight}")
-    
+
     model_name = Path(interrupted_model_folder).name
-
     project_name = Path(project_folder).name
 
-    # Check if the GPU is available - if not, use the CPU
     device = which_device()
-    
-    # Load a model
     model = YOLO(last_weight).to(device)  # load a partially trained model
+    model.train(resume=True)
+    model.val(name = f"{model_name}/{str(project_name)}_val")
 
-    # Resume training
-    results = model.train(resume=True)
 
-    # Evaluate the model's performance on the validation set
-    val_results = model.val(
-        name = f"{model_name}/{str(project_name)}_val")
-    
-def dispatch_data(project_folder:str | Path, use_model:str | Path, img_size:int, 
-                  epochs:int, batch:int, workers:int, dropout:float, model_name:str | Path,
-                  pretrained_model:str | Path | bool, interrupted_model_folder:str | bool) -> Path:
+def restore_dataset(project_folder: str | Path) -> None:
     """
-    This function organizes and finalizes the data used for training by moving relevant files and directories 
-    into the model folder. It also restores the original structure of the dataset folder by moving image and 
-    annotation files back to their respective subdirectories and deletes the temporary training folder.
+    Moves the images and annotations of the temporary datasets/ folder back to
+    data/images and data/labels, then deletes the temporary folder.
 
-    :return: 
-        - Type: None
-        - Description: This function does not return a value. It organizes and moves files into appropriate folders, 
-                       restores the original dataset structure, and deletes the temporary training folder.
-
-    This function ensures that all data and configurations used for training are stored in a dedicated model folder, 
-    making it easy to track and manage different training sessions.
+    Called after the training, and also when the training fails: otherwise the
+    images would stay in datasets/, data/images would be empty, and the next
+    training would fail with "No images found".
     """
+    folders = _dataset_folders(project_folder)
 
-    data_folder = Path(get_data_folder(project_folder))
+    for source, destination in [(folders["img_train"], folders["images"]), (folders["img_val"], folders["images"]),
+                                (folders["labels_train"], folders["labels"]), (folders["labels_val"], folders["labels"])]:
+        destination.mkdir(parents=True, exist_ok=True)
+        if source.exists():
+            for file in source.iterdir():
+                shutil.move(str(file), str(destination / file.name))
+            print(f"Files from {source} moved into {destination}")
+
+    if folders["dataset"].exists():
+        shutil.rmtree(folders["dataset"])
+        print(f"The {folders['dataset']} folder has been deleted")
+
+
+def dispatch_data(project_folder: str | Path, model_name: str) -> Path:
+    """
+    Stores the files used for the training in the model folder (output/train/{model_name}):
+    the .yaml file, labels.txt and the dataset_statistics folder (train/val split).
+    Then restores the dataset structure in data/ (restore_dataset).
+
+    :return: the model folder.
+    """
+    folders = _dataset_folders(project_folder)
     project_name = Path(project_folder).name
+    model_folder = Path.cwd() / 'output' / 'train' / model_name
 
-    img_folder = data_folder / 'images'
-    img_train_folder = data_folder.parent / 'datasets' / project_name / 'images' / 'train'
-    img_val_folder = data_folder.parent / 'datasets' / project_name / 'images' / 'val'
+    shutil.copy2(folders["yaml"], model_folder / f"{project_name}.yaml")
+    print(f'The .yaml file has been copied into {model_folder}')
 
-    labels_folder = data_folder / 'labels'
-    labels_train_folder = data_folder.parent / 'datasets' / project_name / 'labels' / 'train'
-    labels_val_folder = data_folder.parent / 'datasets' / project_name / 'labels' / 'val'
-    
-
-    dataset_folder = data_folder.parent / 'datasets' / project_name
-    yaml_file = dataset_folder / f"{project_name}.yaml"
-    print(yaml_file)
-
-    
-    # Determine which model name to use
-    if interrupted_model_folder:
-        model_folder = Path(str(interrupted_model_folder))
-        model_name = model_folder.name
-    else:
-        if not pretrained_model:
-            model_name = model_name
-        else:
-            model_name = f'{Path(str(pretrained_model)).name}'
-        
-        model_folder = Path.cwd() / 'output' / 'train' / model_name
-    
-    print(model_folder)    
-    # Move the data used for the training session into the model folder
-    shutil.copy2(str(yaml_file), str(model_folder / f"{project_name}.yaml"))
-    print(f'The .yaml file has been moved into {model_folder}')
-    
-    shutil.copy2(str(data_folder / 'labels.txt'), str(model_folder / 'labels.txt'))
+    shutil.copy2(folders["data"] / 'labels.txt', model_folder / 'labels.txt')
     print(f'The labels.txt file has been copied in {model_folder}')
-    
-    shutil.move(str(data_folder / 'dataset_statistics'), str(model_folder))
+
+    shutil.move(str(folders["data"] / 'dataset_statistics'), str(model_folder / 'dataset_statistics'))
     print(f'The statistics folder with the training data have been moved to {model_folder}.')
-  
-    img_folder.mkdir(parents=True, exist_ok=True)
-    if img_train_folder.exists():
-        for file in img_train_folder.iterdir():
-            shutil.move(str(file), str(img_folder / file.name))
-        print(f"Files from {img_train_folder} have been moved into {img_folder}")
-    else:
-        print(f"Warning: {img_train_folder} does not exist.")
-    
-    if img_val_folder.exists():
-        for file in img_val_folder.iterdir():
-            shutil.move(str(file), str(img_folder / file.name))
-        print(f"Files from {img_val_folder} move into {img_folder}")
-    else:
-        print(f"Warning: {img_val_folder} does not exist.")
 
-    labels_folder.mkdir(parents=True, exist_ok=True)
-    if labels_train_folder.exists():
-        for file in labels_train_folder.iterdir():
-            shutil.move(str(file), str(labels_folder / file.name))
-        print(f"Files from {labels_train_folder} move into {labels_folder}")
-    else:
-        print(f"Warning: {labels_train_folder} does not exist.")
-
-    if labels_val_folder.exists():    
-        for file in labels_val_folder.iterdir():
-            shutil.move(str(file), str(labels_folder / file.name))
-        print(f"Files from {labels_val_folder} move into {labels_folder}")
-    else:
-        print(f"Warning: {labels_val_folder} does not exist.")
-
-    shutil.rmtree(str(data_folder.parent / 'datasets' / project_name))
-    
-    print(f"The {data_folder.parent / 'datasets' / project_name} has been deleted")
+    restore_dataset(project_folder)
 
     print(f"✅ All data successfully dispatched")
     return model_folder
 
+
 def training(project_folder:str | Path, nombre_epoch:int, dropout:float, model:str, model_name:str) -> None:
-    clean_comma(project_folder)
-    generate_transformed_data(project_folder)
-    create_training_dataset(project_folder, model, preexisting_distribution=False)
+    """
+    Complete training session, run in a background thread by the training route:
+    data preparation, YOLO training, then storage of the training files in the model folder.
 
-#Config du réentraînement
-    use_model = model # to be changed as needed, by default use 'yolo26s.pt'
-    img_size = 640 # to be changed as needed, by default use 640
-    epochs = nombre_epoch # to be changed as needed
-    batch = -1 # to be changed as needed, by default use 8 or or -1 for AutoBatch
-    workers = 8 # to be changed as needed, by default 24, or 8 (https://docs.ultralytics.com/modes/train/#train-settings)
-    dropout = dropout # Elimine aléatoirement 10% connaissance à chaque époque
+    The result is reported in os.environ["complete"]: "True" if the training succeeded,
+    "Error" otherwise (the detail of the error is printed in the terminal). In both cases,
+    the images are moved back to data/, ready for a new training.
+    """
+    try:
+        clean_comma(project_folder)
+        generate_transformed_data(project_folder)
+        create_training_dataset(project_folder, model, preexisting_distribution=False)
 
-    yolo_training(project_folder, use_model, img_size, epochs, 
-                  batch, workers, dropout, 
-                  model_name, pretrained_model = None)
-    os.environ["complete"] = "True"
+        yolo_training(project_folder, use_model=model, img_size=640, epochs=nombre_epoch,
+                      batch=-1, # -1 for AutoBatch
+                      workers=8, # https://docs.ultralytics.com/modes/train/#train-settings
+                      dropout=dropout, model_name=model_name, pretrained_model=None)
+
+        # Done here rather than on the result page: the data is restored even if
+        # nobody opens the result page, and reloading that page does not redo it.
+        dispatch_data(project_folder, model_name)
+        os.environ["complete"] = "True"
+
+    except Exception as e:
+        traceback.print_exc()
+        print(f"Erreur pendant l'entraînement : {e}")
+        try:
+            restore_dataset(project_folder)
+        except Exception:
+            traceback.print_exc()
+        os.environ["complete"] = "Error"
