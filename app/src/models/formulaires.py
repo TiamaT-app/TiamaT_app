@@ -4,11 +4,12 @@ from wtforms.validators import InputRequired, Length, Optional, Regexp
 from flask_wtf.file import MultipleFileField, FileAllowed, FileRequired, FileField
 from flask_uploads import UploadSet, IMAGES
 
-# Noms utilises comme noms de dossiers (projets, modeles) : lettres (accents compris),
-# chiffres, tirets et underscores uniquement. Interdit notamment / . et les espaces,
-# qui permettraient de creer ou de supprimer des dossiers en dehors de projects/.
-SAFE_NAME = Regexp(r"^[\w-]+\Z",
-                   message="Utilisez uniquement des lettres, des chiffres, des tirets (-) et des underscores (_).")
+# Noms utilises comme noms de dossiers et dans les URL de Label Studio (projets, modeles) :
+# lettres sans accent, chiffres, tirets et underscores uniquement. Les accents sont exclus :
+# encodes dans les URL (é -> %C3%A9) et ecrits de deux facons possibles par macOS, ils
+# feraient apparaitre un meme fichier sous plusieurs chemins differents.
+SAFE_NAME = Regexp(r"^[A-Za-z0-9_-]+\Z",
+                   message="Utilisez uniquement des lettres sans accent, des chiffres, des tirets (-) et des underscores (_).")
 
 
 class NomDuProjet(FlaskForm):

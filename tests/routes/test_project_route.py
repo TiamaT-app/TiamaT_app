@@ -36,10 +36,10 @@ def test_creer_un_projet(client, espace_projets):
     assert projet_courant(espace_projets) == "manuscrits"
 
 
-def test_creer_un_projet_avec_accents(client, espace_projets):
+def test_creer_un_projet_avec_accents_refuse(client, espace_projets):
     reponse = client.post("/accueil_projet", data={"nom": "Lettrines_médiévales"})
-    assert reponse.status_code == 200
-    assert (espace_projets / "projects" / "Lettrines_médiévales").is_dir()
+    assert reponse.status_code == 302
+    assert list((espace_projets / "projects").iterdir()) == []
 
 
 def test_creer_un_projet_deja_existant(client, espace_projets):
