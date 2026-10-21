@@ -1,9 +1,10 @@
 from pathlib import Path
+from urllib.parse import unquote
 
 import numpy as np
 import pandas as pd
 from sklearn import metrics
-import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 
 from ..modules.folders_path import *
 from ..modules.transform_coordinates_functions import from_ls_to_yolo
@@ -26,21 +27,24 @@ def get_img_from_training(project_folder:str | Path, yolo_model_folder:str | Pat
     Returns
     -------
     list
-        A list of image filenames that were used for training.
+        A list of image filenames that were used for training. Empty for a model imported
+        into the app: its training images are unknown (no 'training_dataset.txt').
     """
 
     yolo_model_folder = Path(yolo_model_folder)
-    
+
     training_dataset = yolo_model_folder / 'dataset_statistics'/ 'training_dataset.txt'
     training_folder = Path(get_img_folder_training(project_folder))
-    
+
     if not training_dataset.exists():
-        raise FileNotFoundError(f"Training dataset file not found: {training_dataset}")
-    
-    with open(training_dataset, 'r') as train_data_file:
+        print(f"⚠️ No training dataset file for {yolo_model_folder.name} (imported model?): "
+              f"no image is excluded from the evaluation.")
+        return []
+
+    with open(training_dataset, 'r', encoding='utf-8') as train_data_file:
             train_image_names = [Path(line.strip()).name for line in train_data_file if line.strip()]
-    
-    img_exts = {'.jpg', '.jpeg', '.png', '.tiff'}  
+
+    img_exts = {'.jpg', '.jpeg', '.png', '.tif', '.tiff'}
     image_files = [file.name for file in training_folder.iterdir() if file.suffix.lower() in img_exts]
     
     matching_images = [image_name for image_name in train_image_names if Path(image_name).name in image_files]
@@ -87,58 +91,73 @@ def calculate_iou(box1:list, box2:list) -> float:
     box1_y_min = box1[2] - box1[4] / 2
     box1_x_max = box1[1] + box1[3] / 2
     box1_y_max = box1[2] + box1[4] / 2
-    
+
     box2_x_min = box2[1] - box2[3] / 2
     box2_y_min = box2[2] - box2[4] / 2
     box2_x_max = box2[1] + box2[3] / 2
     box2_y_max = box2[2] + box2[4] / 2
-    
+
     # Calculate coordinates (x,y) of the overlap
     x_min = max(box1_x_min, box2_x_min)
     y_min = max(box1_y_min, box2_y_min)
     x_max = min(box1_x_max, box2_x_max)
     y_max = min(box1_y_max, box2_y_max)
-    #DRACONES sur le +1 
-    # Calculate the area of the overlap
-    intersection_area = max(0, x_max - x_min+1) * max(0, y_max - y_min+1)
 
-    # Calculer the area of the two bounding boxes
-    box1_area = (box1_x_max - box1_x_min+1) * (box1_y_max - box1_y_min+1)
-    box2_area = (box2_x_max - box2_x_min+1) * (box2_y_max - box2_y_min+1)
-    
-    # Calculate the Intersection over Union (IoU)
-    iou = intersection_area / float(box1_area + box2_area - intersection_area)
-    
-    return iou
+    # Calculate the area of the overlap. No "+1" here: it counts the border pixel for
+    # coordinates in pixels, but with relative coordinates (between 0 and 1), adding 1 is like
+    # enlarging every box by the whole size of the image (IoU of 0.91 instead of 0.33).
+    intersection_area = max(0, x_max - x_min) * max(0, y_max - y_min)
+
+    # Calculate the area of the two bounding boxes
+    box1_area = (box1_x_max - box1_x_min) * (box1_y_max - box1_y_min)
+    box2_area = (box2_x_max - box2_x_min) * (box2_y_max - box2_y_min)
+
+    union_area = box1_area + box2_area - intersection_area
+    if union_area <= 0:
+        return 0.0
+
+    return intersection_area / union_area
 
 def match_boxes(predictions: list, corrected_predictions: list, threshold: float = 0.5) -> tuple:
     """
-    Matches predicted bounding boxes with corrected ones based on class and IoU threshold.
+    Matches predicted bounding boxes with corrected ones based on IoU threshold.
     Returns matched predictions, matched corrections, false positives and false negatives.
+
+    All the possible pairs (IoU >= threshold) are considered together, and the best ones are
+    assigned first: pairs of the same class, then the highest IoU, then the highest confidence.
+    Each prediction and each correction can be used in one pair only. This matters for documents
+    where objects overlap a lot: the result does not depend on the order of the lines in the
+    files, and an imprecise prediction cannot take the correction of a better one (the lower
+    confidence duplicate of an object becomes a false positive).
+    A matched pair with different classes is a class error (FP_class in get_csv_results).
     """
-    matched_predictions = []
-    matched_corrections = []
+    prediction_boxes = [[float(coord) for coord in p.split()] for p in predictions]
+    correction_boxes = [[float(coord) for coord in c.split()] for c in corrected_predictions]
 
-    for prediction in predictions:
-        prediction_box = [float(coord) for coord in prediction.split()]
-
-        best_iou = 0
-        best_prediction_idx = -1
-
-        for i, correction in enumerate(corrected_predictions):
-            correction_box = [float(coord) for coord in correction.split()]
+    pairs = []
+    for i, prediction_box in enumerate(prediction_boxes):
+        confidence = prediction_box[5] if len(prediction_box) > 5 else 0.0
+        for j, correction_box in enumerate(correction_boxes):
             iou = calculate_iou(prediction_box, correction_box)
-            print(f"DEBUG iou={iou} pred_class={int(prediction_box[0])} corr_class={int(correction_box[0])}")
-            if iou > best_iou and iou >= threshold:
-                    best_iou = iou
-                    best_prediction_idx = i
+            if iou >= threshold:
+                same_class = int(prediction_box[0]) == int(correction_box[0])
+                pairs.append((same_class, iou, confidence, i, j))
 
-        if best_prediction_idx != -1:
-            matched_predictions.append(prediction)
-            matched_corrections.append(corrected_predictions[best_prediction_idx])
+    # Best pairs first: same class, then highest IoU, then highest confidence
+    pairs.sort(key=lambda pair: (pair[0], pair[1], pair[2]), reverse=True)
 
-    false_negatives = [p for p in corrected_predictions if p not in matched_corrections]
-    false_positives = [a for a in predictions if a not in matched_predictions]
+    used_predictions, used_corrections, matches = set(), set(), []
+    for _, _, _, i, j in pairs:
+        if i not in used_predictions and j not in used_corrections:
+            used_predictions.add(i)
+            used_corrections.add(j)
+            matches.append((i, j))
+
+    matches.sort()  # in the order of the predictions, for a readable CSV
+    matched_predictions = [predictions[i] for i, _ in matches]
+    matched_corrections = [corrected_predictions[j] for _, j in matches]
+    false_positives = [p for i, p in enumerate(predictions) if i not in used_predictions]
+    false_negatives = [c for j, c in enumerate(corrected_predictions) if j not in used_corrections]
 
     return matched_predictions, matched_corrections, false_positives, false_negatives
 
@@ -196,6 +215,7 @@ def get_csv_results(project_folder: str | Path, yolo_model_folder: str | Path, a
     corrected_files = list(correction_folder.glob('*.txt'))
 
     output_file = results_folder / 'results' / 'results_for_evaluation.csv'
+    output_file.parent.mkdir(parents=True, exist_ok=True)
 
     if not all_results:
         img_use_for_training = get_img_from_training(project_folder, yolo_model_folder)
@@ -205,9 +225,6 @@ def get_csv_results(project_folder: str | Path, yolo_model_folder: str | Path, a
     rows = []
     pred_map = {Path(p).name: Path(p) for p in predictions_files}
     corr_map = {Path(p).name: Path(p) for p in corrected_files}
-    print(f"DEBUG correction_folder : {correction_folder}")
-    print(f"DEBUG pred_map : {list(pred_map.keys())}")
-    print(f"DEBUG corr_map : {list(corr_map.keys())}")
 
     for basename, pred_path in pred_map.items():
         corr_path = corr_map.get(basename)
@@ -369,7 +386,7 @@ def get_txt_results(project_folder:str | Path, yolo_model_folder:str | Path) -> 
     f1_score = 2 * (precision * recall) / (precision + recall) if (precision + recall) != 0 else 0
  
     # Open the file in write mode
-    with open(output_file_txt, 'w') as file:
+    with open(output_file_txt, 'w', encoding='utf-8') as file:
         # Écrire les résultats globaux
         file.write("Overall results :\n")
         file.write("Number of TP: {}\n".format(total_TP))
@@ -412,8 +429,10 @@ def get_txt_results(project_folder:str | Path, yolo_model_folder:str | Path) -> 
     recall_formated, precision_formated, f1_score_formated = reformated_decimal(total_TP, total_FN, recall, precision, f1_score)
     table_data.append(['Overall', total_TP, total_FP, total_FN, precision_formated, recall_formated, f1_score_formated, total_support])
     
-    # Generate a PNG file with a table
-    fig, ax = plt.subplots()
+    # Generate a PNG file with a table. A Figure object rather than pyplot: pyplot keeps a
+    # global current figure, shared by all the threads of the app, and never freed here.
+    fig = Figure()
+    ax = fig.subplots()
     ax.axis('off')
     ax.axis('tight')
     
@@ -424,9 +443,8 @@ def get_txt_results(project_folder:str | Path, yolo_model_folder:str | Path) -> 
     table.set_fontsize(10)
     table.auto_set_column_width([0, 1, 2, 3, 4, 5, 6,7])
     
-    plt.savefig(output_png, bbox_inches='tight')
-    # plt.show()
-    
+    fig.savefig(output_png, bbox_inches='tight')
+
     print(f"The {output_png} file has been created.")
     return output_png
 
@@ -473,30 +491,34 @@ def get_corrected_label_files(project_folder:str | Path, yolo_model_folder:str |
             result_item.pop('score', None)
         save_json_file(corrected_file, corrections)
         
-        # Retrieve image name from corrected annotations file
-        name = corrections['task']['data']['image']
+        # Retrieve image name from corrected annotations file. Label Studio encodes the special
+        # characters of the path (%20 for a space, %5C for the Windows backslash...)
+        name = unquote(corrections['task']['data']['image']).replace("\\", "/")
         img_name = Path(name).stem
-        result = corrections['result']
-        
 
-        # Create a .txt file with annotation data
-        with open(label_dict_folder / f"{img_name}.txt", 'w') as yolo_correction:
-            for item in result:
-                if "id" not in item:
-                    #Skipped (deleted box)
-                    print("Prediction box erased.")
-                    continue
+        # All the lines are prepared before writing the file: if a class is unknown,
+        # no half-written YOLO file is left on the disk.
+        lines = []
+        for item in corrections['result']:
+            if "id" not in item:
+                #Skipped (deleted box)
+                print("Prediction box erased.")
+                continue
 
-                
-                # Retrieve annotation box coordinates
-                value = item['value']
-                x, y, w, h = from_ls_to_yolo(value['x'], value['y'], value['width'], value['height'])
+            # Retrieve annotation box coordinates
+            value = item['value']
+            x, y, w, h = from_ls_to_yolo(value['x'], value['y'], value['width'], value['height'])
 
-                # Retrieve the annotation label and associate it with its number in the "labels.txt" file
-                class_name = value['rectanglelabels'][0]
-                class_id = get_class_code(class_name, labels)
-                
-                yolo_correction.write(f"{class_id} {x} {y} {w} {h}\n")
+            # Retrieve the annotation label and associate it with its number in the "labels.txt" file
+            class_name = value['rectanglelabels'][0]
+            class_id = get_class_code(class_name, labels)
+            if class_id == 'unknown-class':
+                raise ValueError(
+                    f"La classe '{class_name}' (correction {corrected_file.name}) est absente de {label_dict_file}.")
+            lines.append(f"{class_id} {x} {y} {w} {h}\n")
+
+        with open(label_dict_folder / f"{img_name}.txt", 'w', encoding='utf-8') as yolo_correction:
+            yolo_correction.writelines(lines)
 
     print(f"✅ All corrected annotations have been converted to YOLO format in: {label_dict_folder}")
 
@@ -604,16 +626,15 @@ def create_confusion_matrix(project_folder:str | Path, yolo_model_folder:str | P
     # To create a more interpretable visual display we need to convert the table into a confusion matrix display
     cm_display = metrics.ConfusionMatrixDisplay(confusion_matrix=confusion_matix, display_labels=display_labels)
 
-    fig, ax = plt.subplots(figsize=(10, 8))
-    
+    fig = Figure(figsize=(10, 8))
+    ax = fig.subplots()
+
     # Costumizing and visualizing the display with rotation of x-axis labels
     cm_display.plot(ax=ax, xticks_rotation=90, cmap='YlOrRd', values_format='d')
 
-    plt.title('Confusion matrice')
+    ax.set_title('Confusion matrice')
 
-    plt.tight_layout()
-    plt.savefig(confusion_matrix_path)
-    # plt.show()
-    plt.clf()
-    
+    fig.tight_layout()
+    fig.savefig(confusion_matrix_path)
+
     return confusion_matrix_path
