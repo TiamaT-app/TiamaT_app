@@ -1,5 +1,8 @@
 import shutil
+import unicodedata
+from datetime import datetime
 from pathlib import Path
+from urllib.parse import unquote
 
 import pandas as pd
 from PIL import Image
@@ -14,6 +17,52 @@ def _images(folder: Path) -> list[Path]:
     """Images du dossier, sans les fichiers caches (._f1.jpg crees par macOS sur les disques externes)."""
     return [f for f in Path(folder).iterdir()
             if f.is_file() and f.suffix.lower() in IMG_EXTENSIONS and not f.name.startswith('.')]
+
+
+def _image_key(image_url: str) -> str:
+    """
+    Forme unique du chemin d'image d'une annotation, pour reconnaitre deux annotations de la meme
+    image : decode (Label Studio enregistre noam%C3%A9 pour noamé), separateurs et Unicode normalises.
+    """
+    return unicodedata.normalize("NFC", unquote(image_url).replace("\\", "/"))
+
+
+def _annotation_date(annotation_file: Path, data: dict) -> datetime:
+    """
+    Date de derniere modification d'une annotation : le champ updated_at (ou created_at)
+    ecrit par Label Studio, a defaut la date de modification du fichier.
+    """
+    for field in ("updated_at", "created_at"):
+        value = data.get(field)
+        if value:
+            try:
+                return datetime.fromisoformat(str(value).replace("Z", "+00:00")).replace(tzinfo=None)
+            except ValueError:
+                pass
+    return datetime.fromtimestamp(annotation_file.stat().st_mtime)
+
+
+def _keep_latest_corrections(corrections: list[Path]) -> list[Path]:
+    """
+    Une seule correction par image : si une image a plusieurs fichiers de correction (image
+    corrigee deux fois), seul le plus recent est garde, les autres sont supprimes.
+    Renvoie les fichiers gardes.
+    """
+    by_image: dict[str, list[tuple[datetime, Path]]] = {}
+    for correction_file in corrections:
+        data = open_json_file(correction_file)
+        key = _image_key(data['task']['data']['image'])
+        by_image.setdefault(key, []).append((_annotation_date(correction_file, data), correction_file))
+
+    kept = []
+    for key, versions in by_image.items():
+        versions.sort(key=lambda version: version[0])
+        latest = versions[-1][1]
+        kept.append(latest)
+        for _, older in versions[:-1]:
+            older.unlink()
+            print(f"⚠️ {older.name} : correction plus ancienne de la même image que {latest.name}, supprimée")
+    return sorted(kept)
 
 
 def _free_name(folder: Path, name: str) -> str:
@@ -128,6 +177,9 @@ def move_correction_files_and_images(project_folder:str | Path) -> None:
       - Moving correction JSON files from `annotations/prediction_corrections/` into `annotations/ground_truth/`.
       - Ensuring that annotation filenames are unique (incrementing the filename number if necessary).
       - Updating the "id" field inside each JSON annotation to match its new filename.
+      - Keeping one annotation per image, the most recent one: if an image has several correction
+        files, or already has an annotation in the ground truth (the same image tested again),
+        the older annotations are deleted.
 
     Parameters
     ----------
@@ -175,10 +227,16 @@ def move_correction_files_and_images(project_folder:str | Path) -> None:
     # Annotation numbers already used in the ground truth ("12" or "12.json")
     used_numbers = {int(f.stem) for f in ground_truth_folder.iterdir() if f.stem.isdigit()}
 
-    # Move correction files to the annotations folder
-    for file in sorted(pred_cors_folder.iterdir()):
-        if not file.is_file() or file.name.startswith('.'):
-            continue
+    # Ground truth annotations already on the disk, indexed by image
+    ground_truth_by_image = {}
+    for gt_file in ground_truth_folder.iterdir():
+        if gt_file.is_file() and not gt_file.name.startswith('.'):
+            ground_truth_by_image[_image_key(open_json_file(gt_file)['task']['data']['image'])] = gt_file
+
+    corrections = [f for f in pred_cors_folder.iterdir() if f.is_file() and not f.name.startswith('.')]
+
+    # Move correction files to the annotations folder (one correction per image, the most recent)
+    for file in _keep_latest_corrections(corrections):
 
         # Ensure a unique number, and keep the extension of the file (or its absence):
         # removing it would make the file invisible to anything looking for .json files.
@@ -194,13 +252,21 @@ def move_correction_files_and_images(project_folder:str | Path) -> None:
         change_ids_and_path(new_annotation, project_id)
 
         # Point to the new name of the image if it had to be renamed
+        data = open_json_file(new_annotation)
         if renamed_images:
-            data = open_json_file(new_annotation)
             image_path = data['task']['data']['image']
             old_name = image_path.rsplit('/', 1)[-1]
             if old_name in renamed_images:
                 data['task']['data']['image'] = image_path[:-len(old_name)] + renamed_images[old_name]
                 save_json_file(new_annotation, data)
+
+        # The same image already annotated in the ground truth: the new correction replaces it
+        key = _image_key(data['task']['data']['image'])
+        previous = ground_truth_by_image.get(key)
+        if previous is not None and previous != new_annotation and previous.exists():
+            previous.unlink()
+            print(f"⚠️ {previous.name} : ancienne annotation de la même image, remplacée par {new_annotation.name}")
+        ground_truth_by_image[key] = new_annotation
 
     print(f"Annotations files corrected and moved to {ground_truth_folder}")
 

@@ -6,35 +6,66 @@ Service d'automatisation Label Studio via son API REST :
 - synchronisation initiale pour faire apparaître les tâches dans LS
 
 Nécessite dans l'environnement :
-- LABEL_STUDIO_URL (ex: http://localhost:8080) -- à defaut, localhost:8080
+- LABEL_STUDIO_URL (ex: http://localhost:8080) -- à défaut, localhost et le port de la configuration
 - LABEL_STUDIO_API_TOKEN -- token utilisateur, visible sur la page
   "Account & Settings" de Label Studio une fois connectée à l'interface
+
+Les chemins d'images sont toujours comparés après décodage (normalize_image_url) :
+Label Studio enregistre la forme encodée pour les URL (noam%C3%A9, f%201.jpg), alors que
+TiamaT construit la forme brute (noamé, f 1.jpg). Comparés tels quels, les deux chemins
+d'une même image semblent différents.
 """
 
+import hashlib
+import json
 import os
 import time
+import unicodedata
+import xml.etree.ElementTree as ET
 from pathlib import Path
+from urllib.parse import unquote
 
 from label_studio_sdk import LabelStudio
 
 from ..src.modules.generate_labels import get_labels, build_ls_label_config
-from..src.modules.manipulate_files import open_json_file, convert_gt_annotation_to_ls_task
+from ..src.modules.manipulate_files import open_json_file
+from ..src.scripts.run_label_studio import is_label_studio_running
 
 from app.config import Config
 
 LS_PORT = Config.LABEL_STUDIO_PORT
-LS_URL = os.environ.get("LABEL_STUDIO_URL", "http://localhost:8080")
-LS_TOKEN = os.environ.get("LABEL_STUDIO_API_TOKEN")
-IMAGE_REGEX_FILTER = r".*\.(jpe?g|png|tiff)$"
+LS_URL = os.environ.get("LABEL_STUDIO_URL", f"http://localhost:{LS_PORT}")
+# (?i) : extensions en majuscules comprises (.JPG des appareils photo)
+IMAGE_REGEX_FILTER = r"(?i).*\.(jpe?g|png|tiff?)$"
+IMG_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.tif', '.tiff'}
+
+
+def _token() -> str | None:
+    """
+    Token d'API, lu à chaque appel : il peut avoir été ajouté par le formulaire de l'app
+    après son démarrage. Lu une seule fois à l'import, il resterait vide jusqu'au redémarrage.
+    """
+    return os.environ.get("LABEL_STUDIO_API_TOKEN")
 
 
 def _get_client() -> LabelStudio:
     """Renvoie un client LS authentifié."""
-    return LabelStudio(base_url=LS_URL, api_key=LS_TOKEN)
+    return LabelStudio(base_url=LS_URL, api_key=_token())
+
+
+def normalize_image_url(url: str) -> str:
+    """
+    Forme unique d'un chemin d'image, pour comparer les chemins entre eux :
+    décodé (%C3%A9 -> é, %20 -> espace), séparateurs uniformisés, et Unicode normalisé
+    (macOS peut écrire un même « é » de deux façons, une lettre ou un e suivi d'un accent).
+    """
+    return unicodedata.normalize("NFC", unquote(url).replace("\\", "/"))
+
 
 def get_ls_url() -> str:
     """Renvoie l'URL courante de Label Studio (potentiellement mise a jour par wait_for_label_studio)."""
     return LS_URL
+
 
 def get_existing_project_id(project_name: str) -> int | None:
     """Cherche un projet par son titre exact. Renvoie son ID ou None."""
@@ -94,12 +125,31 @@ def get_import_storage_id(project_id: int) -> int | None:
     return None
 
 
+def _labels_in_config(label_config: str | None) -> list[str]:
+    """Classes déclarées dans une configuration Label Studio (balises <Label value="...">)."""
+    if not label_config:
+        return []
+    try:
+        return [label.get("value") for label in ET.fromstring(label_config).iter("Label") if label.get("value")]
+    except ET.ParseError:
+        return []
+
+
 def update_ls_label_config(project_id: int, labels_file: Path) -> None:
-    """Met a jour le label config avec les classes du labels.txt."""
+    """
+    Met a jour le label config avec les classes du labels.txt.
+
+    Les classes déjà déclarées dans Label Studio sont conservées, même si elles ne sont pas
+    (encore) dans labels.txt : une classe créée dans l'interface de Label Studio n'apparaît dans
+    labels.txt qu'au calcul des statistiques. La supprimer de la configuration la ferait
+    disparaître de l'interface, et Label Studio refuse une configuration qui ne contient plus
+    des classes utilisées par des annotations existantes.
+    """
     client = _get_client()
-    labels = get_labels(labels_file)
-    label_config = build_ls_label_config(labels)
-    client.projects.update(id=project_id, label_config=label_config)
+    labels = list(get_labels(labels_file).values())
+    current_config = getattr(client.projects.get(id=project_id), "label_config", None)
+    labels += [label for label in _labels_in_config(current_config) if label not in labels]
+    client.projects.update(id=project_id, label_config=build_ls_label_config(labels))
 
 
 def update_ls_annotation(annotation_id: int, result: list) -> dict:
@@ -111,7 +161,6 @@ def update_ls_annotation(annotation_id: int, result: list) -> dict:
 
 def push_corrected_annotation(json_file: str) -> dict:
     """Pousse une annotation corrigee vers Label Studio."""
-    from ..src.modules.manipulate_files import open_json_file
     data = open_json_file(json_file)
     return update_ls_annotation(annotation_id=data["id"], result=data["result"])
 
@@ -125,6 +174,10 @@ def wait_for_label_studio(
     """
     Attend que LS reponde en essayant plusieurs ports.
     Met a jour LS_URL avec le port trouve.
+
+    :raises PermissionError: si Label Studio répond mais refuse le token d'API. Sans cette
+        distinction, un token invalide faisait attendre la fin du délai (3 minutes), puis
+        afficher « Label Studio n'a pas répondu », un message trompeur.
     """
     global LS_URL
     if ports is None:
@@ -134,16 +187,31 @@ def wait_for_label_studio(
     deadline = time.time() + timeout
     while time.time() < deadline:
         for port in ports:
+            if not is_label_studio_running(port):
+                continue
             url = f"{base_url}:{port}"
             try:
-                client = LabelStudio(base_url=url, api_key=LS_TOKEN)
+                client = LabelStudio(base_url=url, api_key=_token())
                 client.projects.list()
                 LS_URL = url
                 return url
-            except Exception:
-                pass
+            except Exception as e:
+                if getattr(e, "status_code", None) in (401, 403):
+                    raise PermissionError(
+                        "Label Studio refuse le token d'API : vérifiez celui de la page "
+                        "« Account & Settings » de Label Studio.") from e
+                # Serveur encore en cours de démarrage : on réessaie
         time.sleep(interval)
     return None
+
+
+def _images_on_disk(project_name: str, chemin_images: Path) -> list[str]:
+    """Chemins Label Studio (?d=projects/...) des images de vérité terrain du projet."""
+    return [
+        f"/data/local-files/?d=projects/{project_name}/image_inputs/ground_truth_images/{f.name}"
+        for f in sorted(Path(chemin_images).iterdir())
+        if f.is_file() and not f.name.startswith('.') and f.suffix.lower() in IMG_EXTENSIONS
+    ]
 
 
 def setup_label_studio_project(
@@ -153,8 +221,14 @@ def setup_label_studio_project(
     labels_file: Path | None = None,
 ) -> tuple[int, str]:
     """
-    Créé ou met a jour un projet LS.
+    Créé ou met a jour le projet LS d'annotation de la vérité terrain.
     Renvoie (project_id, ls_url).
+
+    - Projet inexistant : création, storages, configuration des classes (si labels.txt existe),
+      puis synchronisation, qui crée une tâche par image.
+    - Projet existant : mise à jour des classes, puis import des seules images absentes de
+      Label Studio, avec leur annotation si la vérité terrain en contient une (c'est le cas
+      des images corrigées en fin de cycle).
     """
     ls_url = wait_for_label_studio()
     if ls_url is None:
@@ -164,54 +238,56 @@ def setup_label_studio_project(
 
     if project_id is None:
         project_id = create_ls_project(project_name)
+        if labels_file and Path(labels_file).exists():
+            update_ls_label_config(project_id, labels_file)
         storage_ids = configure_ls_storage(project_id, chemin_images, chemin_labels)
         sync_ls_storage(storage_ids["import_storage_id"])
-    else:
-        client = _get_client()
-        if labels_file and labels_file.exists():
-            update_ls_label_config(project_id, labels_file)
-        
-        # Récupérer les taches existantes pour ne pas écraser les annotations en cours
-        existing_tasks = {
-            task.data["image"]: task.id 
-            for task in client.tasks.list(project=project_id)
-        }
-        
-        # Images présentes sur le disque
-        img_folder = chemin_images  # projects/{nom}/image_inputs/ground_truth_images
-        img_exts = {'.jpg', '.jpeg', '.png', '.tiff'}
-        images_on_disk = {
-            f"/data/local-files/?d=projects/{project_name}/image_inputs/ground_truth_images/{f.name}"
-            for f in img_folder.iterdir()
-            if f.is_file() and not f.name.startswith('.') and f.suffix.lower() in img_exts
-        }
-        
-        # Annotations GT existantes
-        gt_annotations = {
-            data["task"]["data"]["image"]: data
-            for f in chemin_labels.iterdir()
-            if f.is_file() and not f.name.startswith('.')
-            for data in [open_json_file(f)]
-        }
-        
-        # Importer uniquement les nouvelles images (pas déjà dans LS)
-        new_tasks = []
-        for img_url in images_on_disk:
-            if img_url not in existing_tasks:
-                if img_url in gt_annotations:
-                    # Nouvelle image avec annotation existante
-                    new_tasks.append({
-                        "data": {"image": img_url},
-                        "annotations": [{"result": gt_annotations[img_url]["result"]}]
-                    })
-                else:
-                    # Nouvelle image sans annotation
-                    new_tasks.append({"data": {"image": img_url}})
-        
-        if new_tasks:
-            client.projects.import_tasks(id=project_id, request=new_tasks)
+        return project_id, ls_url
+
+    client = _get_client()
+    if labels_file and Path(labels_file).exists():
+        update_ls_label_config(project_id, labels_file)
+
+    # Tâches déjà dans Label Studio, pour ne pas les importer une 2e fois
+    # (ni écraser les annotations en cours)
+    existing_images = {normalize_image_url(task.data["image"]) for task in client.tasks.list(project=project_id)}
+
+    # Annotations de vérité terrain sur le disque, indexées par chemin d'image normalisé
+    gt_annotations = {}
+    for f in Path(chemin_labels).iterdir():
+        if f.is_file() and not f.name.startswith('.'):
+            data = open_json_file(f)
+            gt_annotations[normalize_image_url(data["task"]["data"]["image"])] = data
+
+    # Importer uniquement les nouvelles images (pas déjà dans LS)
+    new_tasks = []
+    for img_url in _images_on_disk(project_name, chemin_images):
+        key = normalize_image_url(img_url)
+        if key in existing_images:
+            continue
+        if key in gt_annotations:
+            # Nouvelle image avec annotation existante (par exemple une image corrigée en fin de cycle)
+            new_tasks.append({"data": {"image": img_url},
+                              "annotations": [{"result": gt_annotations[key]["result"]}]})
+        else:
+            # Nouvelle image sans annotation
+            new_tasks.append({"data": {"image": img_url}})
+
+    if new_tasks:
+        client.projects.import_tasks(id=project_id, request=new_tasks)
 
     return project_id, ls_url
+
+
+def _tasks_fingerprint(tasks: list) -> str:
+    """
+    Empreinte des tâches à corriger : images ET prédictions. Deux lots de tâches ont la même
+    empreinte seulement s'ils proposent les mêmes prédictions sur les mêmes images.
+    """
+    normalized = sorted(
+        (normalize_image_url(task["data"]["image"]), json.dumps(task.get("predictions", []), sort_keys=True))
+        for task in tasks)
+    return "TiamaT:" + hashlib.sha256(json.dumps(normalized).encode("utf-8")).hexdigest()
 
 
 def setup_ls_correction_project(
@@ -225,7 +301,12 @@ def setup_ls_correction_project(
     Créé ou met à jour le projet de correction des predictions du modèle.
     Le nom du projet LS sera {project_name}_corrections.
     - Premier lancement : création + storage export + import des tâches avec predictions
-    - Projet existant : mise à jour du label config uniquement, pas de nouvel import
+    - Projet existant, mêmes tâches (mêmes images et mêmes prédictions) : seule la configuration
+      des classes est mise à jour. Recharger la page de correction ne supprime donc pas les
+      corrections en cours (sinon, une image corrigée à nouveau aurait deux fichiers de correction).
+    - Projet existant, nouvelles tâches (nouvelles images, ou autre modèle testé sur les mêmes
+      images) : les anciennes tâches sont remplacées.
+    L'empreinte des tâches importées est enregistrée dans la description du projet Label Studio.
     Renvoie (project_id, ls_url).
     """
     ls_url = wait_for_label_studio()
@@ -236,13 +317,15 @@ def setup_ls_correction_project(
     client = _get_client()
     project_id = get_existing_project_id(correction_project_name)
 
-    label_config = label_config_file.read_text(encoding="utf-8")
+    label_config = Path(label_config_file).read_text(encoding="utf-8")
+    ls_result = open_json_file(ls_result_file)
+    fingerprint = _tasks_fingerprint(ls_result)
 
     if project_id is None:
-        ls_result = open_json_file(ls_result_file)
         project = client.projects.create(
             title=correction_project_name,
             label_config=label_config,
+            description=fingerprint,
         )
         project_id = project.id
         # storage d'import pour que LS sache où trouver les images
@@ -260,17 +343,19 @@ def setup_ls_correction_project(
             title="prediction_corrections",
         )
         client.projects.import_tasks(id=project_id, request=ls_result)  # type: ignore
-    else:
-        # Projet existant : vider les taches et reimporter les nouvelles
-        client.projects.update(id=project_id, label_config=label_config)
-        # Récupérer tous les IDs des tâches et les supprimer une par une 
-        # A MODIFIER ? Peut être long pour les dossiers avec beaucoup de tâches
-            # -> A voir à l'usage
-        tasks = list(client.tasks.list(project=project_id))
-        for task in tasks:
-            client.tasks.delete(id=task.id)
-        ls_result = open_json_file(ls_result_file)
-        client.projects.import_tasks(id=project_id, request=ls_result) # type:ignore
+        return project_id, ls_url # type:ignore
+
+    client.projects.update(id=project_id, label_config=label_config)
+
+    if getattr(client.projects.get(id=project_id), "description", None) == fingerprint:
+        # Mêmes tâches : on les garde, avec les corrections déjà faites
+        return project_id, ls_url # type:ignore
+
+    # Nouvelles tâches : remplacer les anciennes.
+    # A MODIFIER ? Peut être long pour les dossiers avec beaucoup de tâches -> A voir à l'usage
+    for task in client.tasks.list(project=project_id):
+        client.tasks.delete(id=task.id)
+    client.projects.import_tasks(id=project_id, request=ls_result) # type:ignore
+    client.projects.update(id=project_id, description=fingerprint)
 
     return project_id, ls_url # type:ignore
-

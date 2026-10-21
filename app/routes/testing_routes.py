@@ -21,7 +21,7 @@ from flask import Blueprint, render_template, request, flash, redirect, url_for
 from flask_uploads import configure_uploads
 
 from ..src.scripts.model_evaluation import (get_corrected_label_files, get_csv_results, get_txt_results,
-                                            create_confusion_matrix)
+                                            create_confusion_matrix, read_omitted_images)
 from ..src.scripts.generate_new_ground_truth import (create_new_ground_truth, move_correction_files_and_images,
                                                      add_csv_data, clean_data)
 from ..src.scripts.predicting_and_checking_yolo_results import (process_images_with_yolo, yolo_to_csv,
@@ -202,14 +202,20 @@ def evaluate_model():
         flash(f"Impossible d'évaluer le modèle : {e}")
         return redirect(url_for('project.accueil_projet'))
 
+    # Images de test omises de l'évaluation (utilisées pour l'entraînement, ou non corrigées),
+    # à afficher pour que les scores puissent être interprétés : [{"image": ..., "raison": ...}]
+    images_omises = read_omitted_images(project_folder, model_folder)
+
     if matrix_path is None:
-        return render_template("/pages/no_evaluation.html", project_name=project_name)
+        return render_template("/pages/no_evaluation.html", project_name=project_name,
+                               images_omises=images_omises)
 
     return render_template(
         "/pages/model_evaluation.html",
         project_name=project_name,
         png_path=Path(png_path).relative_to(Path.cwd()).as_posix(),
-        matrix_path=Path(matrix_path).relative_to(Path.cwd()).as_posix())
+        matrix_path=Path(matrix_path).relative_to(Path.cwd()).as_posix(),
+        images_omises=images_omises)
 
 
 def _testable_models(project_name: str) -> list[str]:

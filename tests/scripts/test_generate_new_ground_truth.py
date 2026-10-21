@@ -1,6 +1,7 @@
 """Tests de l'intégration des images corrigées dans la vérité terrain du projet (fin de cycle)."""
 
 import json
+import os
 
 import pandas as pd
 from PIL import Image
@@ -117,3 +118,78 @@ def test_add_csv_data_ignore_les_fichiers_caches(cycle):
 
     df = pd.read_csv(cycle["gt_images"] / "manuscrits_data.csv", sep=";")
     assert df["Image_name"].tolist() == ["f1"]
+
+
+# --- Une seule correction par image, la plus récente -----------------------------------------------
+
+def correction_datee(cycle, nom_fichier, image, updated_at, classe):
+    (cycle["corrections"] / nom_fichier).write_text(json.dumps({
+        "id": 999, "project": 5, "updated_at": updated_at,
+        "result": [{"value": {"rectanglelabels": [classe]}}],
+        "task": {"project": 5,
+                 "data": {"image": f"/data/local-files/?d=projects/manuscrits/image_inputs/eval_images/{image}"}}}))
+
+
+def classes_de_la_verite_terrain(cycle):
+    return sorted(lire(f)["result"][0]["value"]["rectanglelabels"][0]
+                  for f in cycle["gt"].iterdir() if lire(f)["result"])
+
+
+def test_image_corrigee_deux_fois_seule_la_plus_recente_est_gardee(cycle):
+    (cycle["eval"] / "f1.jpg").write_bytes(b"image")
+    # Le fichier au plus petit numéro est le plus récent : l'ordre des fichiers ne doit pas compter
+    correction_datee(cycle, "3", "f1.jpg", "2026-10-21T14:30:00.000000Z", "initiale")
+    correction_datee(cycle, "8", "f1.jpg", "2026-10-21T09:00:00.000000Z", "miniature")
+
+    gng.move_correction_files_and_images(cycle["projet"])
+
+    assert classes_de_la_verite_terrain(cycle) == ["initiale"]
+    assert list(cycle["corrections"].iterdir()) == []
+
+
+def test_chemins_encodes_reconnus_comme_la_meme_image(cycle):
+    (cycle["eval"] / "f1.jpg").write_bytes(b"image")
+    correction_datee(cycle, "3", "f1.jpg", "2026-10-21T14:30:00Z", "initiale")
+    correction_datee(cycle, "4", "f%31.jpg", "2026-10-21T09:00:00Z", "miniature")   # %31 = « 1 »
+
+    gng.move_correction_files_and_images(cycle["projet"])
+
+    assert classes_de_la_verite_terrain(cycle) == ["initiale"]
+
+
+def test_sans_date_la_modification_du_fichier_departage(cycle):
+    (cycle["eval"] / "f1.jpg").write_bytes(b"image")
+    correction(cycle, "3", "f1.jpg")
+    correction(cycle, "4", "f1.jpg")
+    os.utime(cycle["corrections"] / "3", (2_000_000_000, 2_000_000_000))   # « 3 » modifié en dernier
+    os.utime(cycle["corrections"] / "4", (1_000_000_000, 1_000_000_000))
+
+    gng.move_correction_files_and_images(cycle["projet"])
+
+    assert len(list(cycle["gt"].iterdir())) == 1
+
+
+def test_nouvelle_correction_remplace_l_annotation_existante_de_la_meme_image(cycle):
+    # La même image, testée à nouveau puis corrigée : la nouvelle correction remplace l'ancienne annotation.
+    (cycle["gt_images"] / "f1.jpg").write_bytes(b"image")
+    (cycle["gt"] / "1").write_text(json.dumps({
+        "id": 1, "project": 3, "result": [{"value": {"rectanglelabels": ["miniature"]}}],
+        "task": {"project": 3, "data": {"image": "/data/local-files/?d=projects/manuscrits/image_inputs/ground_truth_images/f1.jpg"}}}))
+    (cycle["eval"] / "f1.jpg").write_bytes(b"image")
+    correction_datee(cycle, "5", "f1.jpg", "2026-10-21T14:30:00Z", "initiale")
+
+    gng.move_correction_files_and_images(cycle["projet"])
+
+    assert [f.name for f in cycle["gt"].iterdir()] == ["5"]
+    assert classes_de_la_verite_terrain(cycle) == ["initiale"]
+
+
+def test_les_corrections_d_images_differentes_sont_toutes_gardees(cycle):
+    for nom in ["f1.jpg", "f2.jpg"]:
+        (cycle["eval"] / nom).write_bytes(nom.encode())
+    correction_datee(cycle, "3", "f1.jpg", "2026-10-21T14:30:00Z", "initiale")
+    correction_datee(cycle, "4", "f2.jpg", "2026-10-21T09:00:00Z", "miniature")
+
+    gng.move_correction_files_and_images(cycle["projet"])
+
+    assert classes_de_la_verite_terrain(cycle) == ["initiale", "miniature"]

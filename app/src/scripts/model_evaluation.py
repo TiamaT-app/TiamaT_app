@@ -13,51 +13,98 @@ from ..modules.manipulate_files import open_json_file, save_json_file, exclude_t
 from ..modules.generate_labels import get_labels
 
 
+IMG_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.tif', '.tiff'}
+
+# Raisons pour lesquelles une image de test est omise de l'evaluation
+OMITTED_TRAINING = "image utilisée pour l'entraînement du modèle"
+OMITTED_NOT_CORRECTED = "image non corrigée (non validée) dans Label Studio"
+
+
+def _eval_images(project_folder: str | Path) -> dict[str, Path]:
+    """Images de test du projet (eval_images), indexees par leur nom sans extension."""
+    eval_folder = Path(get_img_folder_inference(project_folder))
+    if not eval_folder.exists():
+        return {}
+    return {f.stem: f for f in eval_folder.iterdir()
+            if f.is_file() and f.suffix.lower() in IMG_EXTENSIONS and not f.name.startswith('.')}
+
+
+def _find_training_image(project_folder: str | Path, listed_path: Path) -> Path | None:
+    """Fichier d'une image d'entrainement : a son chemin d'origine, ou dans la verite terrain, ou dans data/images."""
+    for candidate in (listed_path,
+                      Path(get_img_folder_training(project_folder)) / listed_path.name,
+                      Path(get_data_folder(project_folder)) / 'images' / listed_path.name):
+        if candidate.is_file():
+            return candidate
+    return None
+
+
 def get_img_from_training(project_folder:str | Path, yolo_model_folder:str | Path) -> list:
     """
-    Returns a list of images from the dataset folder that were used during the YOLO model training.
+    Returns the names of the evaluation images (eval_images) that were used to train the model.
+
+    An evaluation image is considered as used for training if an image with the same name is
+    listed in the 'training_dataset.txt' of the model AND both files have the same content.
+    An image with the same name but a different content (a homonym) is kept in the evaluation.
+    If the training image can no longer be found to compare the contents, the evaluation image
+    is excluded, to be safe.
 
     Parameters
     ----------
     project_folder : str | Path
-
+        Path to the main project folder.
     yolo_model_folder : str | Path
-        Path to the YOLO model folder (should contain 'dataset_statistics/training_dataset.txt').
+        Path to the folder of the YOLO model, containing 'dataset_statistics/training_dataset.txt'.
 
     Returns
     -------
     list
-        A list of image filenames that were used for training. Empty for a model imported
+        The file names of the evaluation images used for training. Empty for a model imported
         into the app: its training images are unknown (no 'training_dataset.txt').
     """
-
-    yolo_model_folder = Path(yolo_model_folder)
-
-    training_dataset = yolo_model_folder / 'dataset_statistics'/ 'training_dataset.txt'
-    training_folder = Path(get_img_folder_training(project_folder))
-
+    training_dataset = Path(yolo_model_folder) / 'dataset_statistics' / 'training_dataset.txt'
     if not training_dataset.exists():
-        print(f"⚠️ No training dataset file for {yolo_model_folder.name} (imported model?): "
+        print(f"⚠️ No training dataset file for {Path(yolo_model_folder).name} (imported model?): "
               f"no image is excluded from the evaluation.")
         return []
 
     with open(training_dataset, 'r', encoding='utf-8') as train_data_file:
-            train_image_names = [Path(line.strip()).name for line in train_data_file if line.strip()]
+        training_images = {Path(line.strip()).name: Path(line.strip()) for line in train_data_file if line.strip()}
 
-    img_exts = {'.jpg', '.jpeg', '.png', '.tif', '.tiff'}
-    image_files = [file.name for file in training_folder.iterdir() if file.suffix.lower() in img_exts]
-    
-    matching_images = [image_name for image_name in train_image_names if Path(image_name).name in image_files]
-   
-    if matching_images:
+    used_for_training = []
+    for eval_image in sorted(_eval_images(project_folder).values()):
+        listed_path = training_images.get(eval_image.name)
+        if listed_path is None:
+            continue
+        training_image = _find_training_image(project_folder, listed_path)
+        if training_image is None:
+            print(f"⚠️ {eval_image.name}: training image not found, excluded from the evaluation to be safe.")
+            used_for_training.append(eval_image.name)
+        elif training_image.read_bytes() == eval_image.read_bytes():
+            used_for_training.append(eval_image.name)
+        else:
+            print(f"ℹ️ {eval_image.name} has the same name as a training image but a different content: "
+                  f"it is kept in the evaluation.")
+
+    if used_for_training:
         print("✅ The following images were used to train the model:")
-        for img in matching_images:
+        for img in used_for_training:
             print(f" - {img}")
-        
-    else:
-        print(f"⚠️ No matching images found in {training_folder} for the model {yolo_model_folder.name}.")
-    
-    return matching_images
+
+    return used_for_training
+
+
+def read_omitted_images(project_folder: str | Path, yolo_model_folder: str | Path) -> list[dict]:
+    """
+    Images de test omises de la derniere evaluation, avec la raison de l'omission :
+    [{"image": "f1.jpg", "raison": "..."}, ...], lues dans results/omitted_images.csv.
+    """
+    omitted_file = Path(get_results_folder(project_folder, yolo_model_folder)) / 'results' / 'omitted_images.csv'
+    if not omitted_file.exists():
+        return []
+    df = pd.read_csv(omitted_file, sep=';')
+    return df.to_dict('records')
+
 
 def calculate_iou(box1:list, box2:list) -> float:
     """
@@ -217,10 +264,31 @@ def get_csv_results(project_folder: str | Path, yolo_model_folder: str | Path, a
     output_file = results_folder / 'results' / 'results_for_evaluation.csv'
     output_file.parent.mkdir(parents=True, exist_ok=True)
 
+    # Images omises de l'évaluation, avec la raison, pour pouvoir les signaler
+    eval_images = _eval_images(project_folder)
+    omitted = []
+
     if not all_results:
         img_use_for_training = get_img_from_training(project_folder, yolo_model_folder)
         predictions_files = exclude_training_images(predictions_files, img_use_for_training)
         corrected_files = exclude_training_images(corrected_files, img_use_for_training)
+        omitted += [{"image": name, "raison": OMITTED_TRAINING} for name in img_use_for_training]
+
+    # Une image sans fichier de correction n'a pas été validée dans Label Studio : on ne sait pas
+    # si ses prédictions sont justes. Elle est omise (et signalée) plutôt que de compter toutes
+    # ses prédictions comme des faux positifs.
+    corrected_stems = {Path(p).stem for p in corrected_files}
+    excluded_stems = {Path(o["image"]).stem for o in omitted}
+    test_stems = set(eval_images) | {Path(p).stem for p in predictions_files}
+    for stem in sorted(test_stems - corrected_stems - excluded_stems):
+        image_name = eval_images[stem].name if stem in eval_images else stem
+        omitted.append({"image": image_name, "raison": OMITTED_NOT_CORRECTED})
+    predictions_files = [p for p in predictions_files if Path(p).stem in corrected_stems]
+
+    omitted_file = output_file.parent / 'omitted_images.csv'
+    pd.DataFrame(omitted, columns=["image", "raison"]).to_csv(omitted_file, sep=';', index=False)
+    if omitted:
+        print(f"⚠️ {len(omitted)} image(s) omitted from the evaluation, listed in {omitted_file}")
 
     rows = []
     pred_map = {Path(p).name: Path(p) for p in predictions_files}
@@ -423,7 +491,13 @@ def get_txt_results(project_folder:str | Path, yolo_model_folder:str | Path) -> 
             file.write("Score F1 : {}\n".format(f1_score_class))
             file.write(f"Support : {support}\n")
             file.write("\n")
- 
+
+        # Images omitted from the evaluation, so that the scores can be interpreted
+        omitted = read_omitted_images(project_folder, yolo_model_folder)
+        file.write(f"Images omitted from the evaluation : {len(omitted)}\n")
+        for image in omitted:
+            file.write(f" - {image['image']} : {image['raison']}\n")
+
     print(f"The {output_file_txt} file has been created.")
 
     recall_formated, precision_formated, f1_score_formated = reformated_decimal(total_TP, total_FN, recall, precision, f1_score)

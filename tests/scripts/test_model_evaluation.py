@@ -192,14 +192,68 @@ def test_modele_importe_sans_liste_d_entrainement(cycle, predictions_et_correcti
     ev.get_csv_results(cycle["projet"], cycle["modele"], all_results=False)
 
 
-def test_les_images_d_entrainement_sont_exclues(cycle, predictions_et_corrections):
-    # Une image ayant servi à l'entraînement ne doit pas compter dans l'évaluation.
-    (cycle["gt_images"] / "f1.jpg").write_bytes(b"")
+def lister_pour_l_entrainement(cycle, *noms):
+    """Écrit le training_dataset.txt du modèle, comme le fait l'entraînement."""
     stats = cycle["modele"] / "dataset_statistics"
-    stats.mkdir()
-    (stats / "training_dataset.txt").write_text(f"{cycle['data'] / 'images' / 'f1.jpg'}\n")
+    stats.mkdir(exist_ok=True)
+    (stats / "training_dataset.txt").write_text("".join(f"{cycle['data'] / 'images' / nom}\n" for nom in noms))
+
+
+def lignes_du_csv(cycle):
+    return pd.read_csv(cycle["resultats"] / "results" / "results_for_evaluation.csv", sep=";")["Filename"].tolist()
+
+
+def omises(cycle):
+    return {o["image"]: o["raison"] for o in ev.read_omitted_images(cycle["projet"], cycle["modele"])}
+
+
+def test_une_image_d_entrainement_est_exclue_et_signalee(cycle, predictions_et_corrections):
+    # f1.jpg a servi à l'entraînement, et l'image de test est la même (même contenu).
+    (cycle["gt_images"] / "f1.jpg").write_bytes(b"image-f1")
+    (cycle["eval"] / "f1.jpg").write_bytes(b"image-f1")
+    lister_pour_l_entrainement(cycle, "f1.jpg")
 
     ev.get_csv_results(cycle["projet"], cycle["modele"], all_results=False)
 
-    df = pd.read_csv(cycle["resultats"] / "results" / "results_for_evaluation.csv", sep=";")
-    assert "f1.txt" not in df["Filename"].tolist()
+    assert "f1.txt" not in lignes_du_csv(cycle)
+    assert omises(cycle) == {"f1.jpg": ev.OMITTED_TRAINING}
+
+
+def test_un_homonyme_d_une_image_d_entrainement_reste_evalue(cycle, predictions_et_corrections):
+    # Même nom qu'une image d'entraînement, mais une autre image : elle doit être évaluée.
+    (cycle["gt_images"] / "f1.jpg").write_bytes(b"image-d-entrainement")
+    (cycle["eval"] / "f1.jpg").write_bytes(b"autre-image")
+    lister_pour_l_entrainement(cycle, "f1.jpg")
+
+    ev.get_csv_results(cycle["projet"], cycle["modele"], all_results=False)
+
+    assert "f1.txt" in lignes_du_csv(cycle)
+    assert omises(cycle) == {}
+
+
+def test_image_d_entrainement_introuvable_exclue_par_prudence(cycle, predictions_et_corrections):
+    # Impossible de comparer les contenus : l'image est exclue, et signalée.
+    (cycle["eval"] / "f1.jpg").write_bytes(b"image-f1")
+    lister_pour_l_entrainement(cycle, "f1.jpg")
+
+    ev.get_csv_results(cycle["projet"], cycle["modele"], all_results=False)
+
+    assert omises(cycle) == {"f1.jpg": ev.OMITTED_TRAINING}
+
+
+def test_une_image_non_corrigee_est_omise_et_signalee(cycle, predictions_et_corrections):
+    # f5 a des prédictions mais n'a pas été validée dans Label Studio : ses prédictions
+    # ne doivent pas être comptées comme des faux positifs.
+    (cycle["resultats"] / "labels" / "f5.txt").write_text("0 0.5 0.5 0.2 0.2 0.9\n")
+    (cycle["eval"] / "f5.jpg").write_bytes(b"")
+    (cycle["eval"] / "f6.png").write_bytes(b"")   # ni prédiction, ni correction
+
+    ev.get_csv_results(cycle["projet"], cycle["modele"], all_results=False)
+    ev.get_txt_results(cycle["projet"], cycle["modele"])
+
+    assert "f5.txt" not in lignes_du_csv(cycle)
+    assert omises(cycle) == {"f5.jpg": ev.OMITTED_NOT_CORRECTED, "f6.png": ev.OMITTED_NOT_CORRECTED}
+    resume = (cycle["resultats"] / "results" / "results_for_evaluation.txt").read_text()
+    assert "Number of FP : 2\n" in resume   # inchangé : f5 ne compte pas
+    assert "Images omitted from the evaluation : 2" in resume
+    assert " - f5.jpg : image non corrigée" in resume

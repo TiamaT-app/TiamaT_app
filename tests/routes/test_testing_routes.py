@@ -154,9 +154,16 @@ def faux_evaluation(mocker, projet):
     return mocker.patch.object(testing_routes, "create_confusion_matrix", return_value=resultats / "confusion_matrix.png")
 
 
-def test_evaluation(client, projet, faux_evaluation):
+def test_evaluation(client, projet, faux_evaluation, mocker):
+    omises = [{"image": "f5.jpg", "raison": "image non corrigée (non validée) dans Label Studio"}]
+    mocker.patch.object(testing_routes, "read_omitted_images", return_value=omises)
+    rendu = mocker.spy(testing_routes, "render_template")
+
     page = client.get("/evaluate_model").get_data(as_text=True)
+
     assert f"output/predict/manuscrits_{MODELE}/results/confusion_matrix.png" in page
+    # La liste des images omises est transmise à la page
+    assert rendu.call_args.kwargs["images_omises"] == omises
 
 
 def test_evaluation_sans_correction(client, projet, faux_evaluation, mocker):
