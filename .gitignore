@@ -19,6 +19,9 @@ __pycache__/
 
 ## 4. Logs & Databases
 *.log
+*.sqlite3
+*.py[cod]
+.ipynb_checkpoints/
 
 ## 5. Poids de modeles telecharges automatiquement a la racine (ex: yolo11n.pt)
 *.pt
