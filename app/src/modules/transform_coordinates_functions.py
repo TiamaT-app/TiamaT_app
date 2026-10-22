@@ -8,7 +8,8 @@ Functions included:
 2. from_ls_to_yolo: Converts Label Studio bounding box coordinates to YOLO format (relative coordinates).
 """
 
-def from_relative_coordinates_to_absolute(x_center, y_center, width, height, img_width, img_height):
+def from_relative_coordinates_to_absolute(x_center:float, y_center:float, width:float, height:float, 
+                                          img_width:int, img_height:int) -> tuple:
     """
     This function transform the relative coordinates of the YOLO bounding box detection into absolute coordinates.
     The absolute coordinates will be used to create the bounding boxes of the detected objects in pixel values.
@@ -51,12 +52,12 @@ def from_relative_coordinates_to_absolute(x_center, y_center, width, height, img
     upper_left_x = abs_x_center - (abs_width / 2)
     upper_left_y = abs_y_center - (abs_height / 2)
 
-    absolute_coordinates = int(upper_left_x), int(upper_left_y), int(abs_width), int(abs_height)
+    absolute_coordinates = round(upper_left_x), round(upper_left_y), round(abs_width), round(abs_height)
     
     return absolute_coordinates
 
 
-def from_ls_to_yolo(x, y, width, height):
+def from_ls_to_yolo(x:float, y:float, width:float, height:float) ->tuple[str, str, str, str]:
     """
     This function converts annotation coordinates from Label Studio format to YOLO format (relative coordinates).
 

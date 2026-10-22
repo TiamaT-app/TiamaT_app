@@ -17,7 +17,7 @@ from pathlib import Path
 def get_img_folder_training(project_folder:str | Path) -> str:
     """
     This function recomposes the path to the folder containing the annotated images, 
-    corresponding to the 'annotated_images' folder in the structure.
+    corresponding to the 'image_inputs/ground_truth_images' folder in the structure.
 
     :param project_folder: 
         - Type: str
@@ -25,7 +25,7 @@ def get_img_folder_training(project_folder:str | Path) -> str:
     
     :return: 
         - Type: str
-        - Description: Absolute path to the 'annotated_images' folder within the project folder.
+        - Description: Absolute path to the 'image_inputs/ground_truth_images' folder within the project folder.
     """
     
     img_folder = Path(project_folder) / 'image_inputs' / 'ground_truth_images'
@@ -92,9 +92,9 @@ def get_results_folder(project_folder:str | Path, yolo_model_folder:str | Path) 
     """
     This function recomposes the path to the folder where results are stored based on the provided YOLO model and image dataset folders.
     
-    :param img_dataset_folder: 
+    :param project_folder: 
         - Type: str
-        - Description: Absolute path to the image dataset folder used in the project.
+        - Description: Absolute path to the project folder. Its name is used in the results folder name.
 
     :param yolo_model_folder: 
         - Type: str
@@ -114,24 +114,22 @@ def get_results_folder(project_folder:str | Path, yolo_model_folder:str | Path) 
     return str(results_folder)
 
 
-
 def get_data_folder(project_folder:str | Path) ->str:
     """
-    This function recomposes the path to the data folder corresponding to the provided project folder
-    by replacing the project folder name with 'data' in the path.
+    This function recomposes the path to the data folder corresponding to the provided project folder:
+        <root>/projects/<project_name> gives <root>/data/<project_name>.
 
     :param project_folder:
         - Type: str
         - Description: Absolute path to the project folder.
     :return:
         - Type: str
-        - Description: Absolute path to the data folder constructed by replacing the
-                       project folder name in the provided path with 'data'.
+        - Description: Absolute path to the data folder, <root>/data/<project_name>.
     """
     
     root = Path(project_folder).parent.parent
     project_name = Path(project_folder).name
-    data_folder = root.joinpath(root, 'data', project_name)
+    data_folder = root / 'data' / project_name
     return str(data_folder)
 
 def get_correctedLabels_folder(project_folder:str | Path, yolo_model_folder:str | Path) -> str:

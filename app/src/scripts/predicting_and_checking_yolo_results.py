@@ -1,17 +1,13 @@
 import uuid
 import json
+import traceback
 import unicodedata
 from pathlib import Path
 import os
 
-import cv2
-import torch
 import pandas as pd
 from PIL import Image
 from ultralytics import YOLO
-
-import sys
-sys.path.append(str(Path.cwd().parent / 'modules'))
 
 from ..modules.device_function import which_device
 from ..modules.folders_path import get_results_folder
@@ -19,13 +15,36 @@ from ..modules.class_functions import get_class_name
 from ..modules.transform_coordinates_functions import from_relative_coordinates_to_absolute
 from ..modules.generate_labels import get_labels
 
+IMG_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
+
+
+def _eval_images(eval_folder: Path) -> list[Path]:
+    """
+    Images du dossier eval_images (sous-dossiers compris), sans les fichiers ou dossiers caches.
+
+    Seule la partie du chemin situee sous eval_images est examinee : si le projet lui-meme
+    se trouve dans un dossier cache (~/.local/..., par exemple), ses images restent prises en compte.
+    """
+    images = []
+    for img_path in sorted(Path(eval_folder).rglob("*")):
+        if not img_path.is_file() or img_path.suffix.lower() not in IMG_EXTENSIONS:
+            continue
+        if any(part.startswith('.') for part in img_path.relative_to(eval_folder).parts):
+            continue
+        images.append(img_path)
+    return images
+
 def process_images_with_yolo(project_folder:str | Path, yolo_model_folder:str | Path) -> None:
     """
     Processes all image files in the 'eval_images' subdirectory of a project folder using a YOLO model.
 
-    This function recursively scans the 'image_inputs/eval_images' directory, detects valid image files
-    (e.g., .jpg, .jpeg, .png, .tiff), and runs object detection on each image using the provided YOLO model.
-    Detection results are saved in a structured format for later analysis.
+    This function recursively scans the 'image_inputs/eval_images' directory and runs object detection
+    on each image. Detection results are saved in YOLO format, one .txt file per image, in the
+    'labels' folder of the results directory.
+
+    The model is loaded once for all the images. The result is reported in os.environ["test_complete"]:
+    "True" when all the images have been processed, "Error" if the processing failed (the detail
+    of the error is printed in the terminal).
 
     Note:
     -----
@@ -43,31 +62,26 @@ def process_images_with_yolo(project_folder:str | Path, yolo_model_folder:str | 
     yolo_model_folder : str
         Path to the folder containing the YOLO model weights.
         The function expects a file at: 'weights/best.pt' within this folder.
-
-    Returns:
-    --------
-    None
-        This function does not return anything.
-        It performs detection on each image and saves results (typically in a 'labels' folder).
     """
+    try:
+        eval_folder = Path(project_folder) / 'image_inputs' / 'eval_images'
+        yolo_model = YOLO(Path(yolo_model_folder) / 'weights' / 'best.pt')
+        device = which_device()
 
-    eval_folder = Path(project_folder) /'image_inputs' / 'eval_images'
-    img_exts = {".jpg", ".jpeg", ".png", ".tiff"}
+        for img_path in _eval_images(eval_folder):
+            process_single_image_with_yolo(project_folder, yolo_model_folder, str(img_path),
+                                           yolo_model=yolo_model, device=device)
+            print(f"Processed: {img_path}")
+        os.environ["test_complete"] = "True"
 
-     # Recursively search for all image files
-    for img_path in eval_folder.rglob("*"):
-        # Skip non-image files or files in hidden folders
-        if not img_path.is_file() or img_path.suffix.lower() not in img_exts:
-            continue
-        if any(part.startswith('.') for part in img_path.parts):
-            continue
-        
-        # Run YOLO object detection on the image
-        process_single_image_with_yolo(project_folder, yolo_model_folder, str(img_path))
-        print(f"Processed: {img_path}")
-    os.environ["test_complete"]= "True"
-                
-def process_single_image_with_yolo(project_folder:str | Path, yolo_model_folder:str | Path, img_path:str | Path) -> None:
+    except Exception as e:
+        traceback.print_exc()
+        print(f"Erreur pendant les prédictions : {e}")
+        os.environ["test_complete"] = "Error"
+
+
+def process_single_image_with_yolo(project_folder:str | Path, yolo_model_folder:str | Path, img_path:str | Path,
+                                   yolo_model=None, device=None) -> None:
     """
     Runs YOLO object detection on a single image and saves the results as a label file in YOLO format.
 
@@ -83,31 +97,31 @@ def process_single_image_with_yolo(project_folder:str | Path, yolo_model_folder:
     img_path : str
         Absolute path to the image to be processed.
 
+    yolo_model, device : optional
+        An already loaded YOLO model and the device to use. If not given, they are loaded here
+        (loading a model takes time: process_images_with_yolo loads it once for all the images).
+
     Returns
     -------
     None
         The function saves a .txt file in the 'labels' subfolder under the results directory, with the format:
         <class_id> <x_center> <y_center> <width> <height> <confidence>
     """
+    if device is None:
+        device = which_device()
+    if yolo_model is None:
+        yolo_model = YOLO(Path(yolo_model_folder) / 'weights' / 'best.pt')
 
-    # Check if the GPU is available - if not, use the CPU
-    device = which_device()
-    
-    # Load YOLO model
-    model_path = Path(yolo_model_folder) / 'weights' / 'best.pt'
-    
     # Prepare output directory
     results_folder = get_results_folder(project_folder, yolo_model_folder)
     labels_folder = Path(results_folder) / 'labels'
     labels_folder.mkdir(parents=True, exist_ok=True)
-    
-    img_name = Path(img_path).stem
-    image = cv2.imread(str(img_path))
 
-    yolo_model = YOLO(model_path)
+    label_path = labels_folder / f"{Path(img_path).stem}.txt"
 
-    # Process the image using YOLO
-    results = yolo_model.predict(source=image,
+    # The path is given directly to YOLO rather than an image read with cv2.imread,
+    # which cannot open a path containing accents under Windows.
+    results = yolo_model.predict(source=str(img_path),
                                  device=device,
                                  agnostic_nms=True,
                                  imgsz=640,
@@ -115,25 +129,25 @@ def process_single_image_with_yolo(project_folder:str | Path, yolo_model_folder:
                                  save_conf=False,
                                  verbose=False
                                 )
-    
+
     boxes = results[0].boxes
-    
+
     if boxes is None or len(boxes) == 0:
-            print(f"No detections found in {img_path}")
-            return
-    
-    # Save prediction to a YOLO-format .txt file
-    label_path = labels_folder / f"{img_name}.txt"
-    
-    with open(label_path, 'w') as label_file:
+        # Remove the predictions of a previous run on an image with the same name,
+        # which would otherwise be taken for the predictions of this one
+        label_path.unlink(missing_ok=True)
+        print(f"No detections found in {img_path}")
+        return
+
+    with open(label_path, 'w', encoding='utf-8') as label_file:
         for box in boxes:
             xywh = " ".join([f"{value:.4f}" for value in box.xywhn.squeeze().tolist()])
             class_id = int(box.cls.item())
             confidence = box.conf.item()
-            label_line = f"{class_id} {xywh} {confidence:.4f}\n"
-            label_file.write(label_line)
-    
-    print(f"✅ Saved predictions for {img_name} to {label_path}")
+            label_file.write(f"{class_id} {xywh} {confidence:.4f}\n")
+
+    print(f"✅ Saved predictions for {Path(img_path).stem} to {label_path}")
+
 
 def get_image_data(project_folder:str | Path) -> None:
     """
@@ -149,22 +163,16 @@ def get_image_data(project_folder:str | Path) -> None:
     Returns
     -------
     None
-        The function creates a CSV file named '<folder>.csv' in the 'eval_images' folder
+        The function creates a CSV file named '<project_name>.csv' in the 'eval_images' folder
         with metadata for each image.
     """
 
     eval_folder = Path(project_folder) /'image_inputs' / 'eval_images'
-    project_name = eval_folder.name
-    img_exts = {".jpg", ".jpeg", ".png", ".tiff"}
-    
-    data = []
+    # Nom du projet (et non du dossier eval_images) : add_csv_data cherche ce fichier sous ce nom
+    project_name = Path(project_folder).name
 
-    images = [img for img in eval_folder.rglob('*') 
-              if img.is_file() 
-              and img.suffix.lower() in img_exts
-              and not img.name.startswith('.')]
-    
-    for file in images:
+    data = []
+    for file in _eval_images(eval_folder):
         try:
             with Image.open(file) as img:
                 absolute_path = str(file.resolve())
@@ -239,20 +247,13 @@ def yolo_to_csv(project_folder:str | Path, yolo_model_folder:str | Path) -> None
     final_results_folder.mkdir(parents=True, exist_ok=True)
     
     csv_file = final_results_folder / f"{project_name}.csv"
-    img_exts = {".jpg", ".jpeg", ".png", ".tiff"}
+    labels = get_labels(str(labels_file))
 
     annotation_files = [file for file in labels_folder.iterdir() if file.suffix.lower() == '.txt']
 
     all_rows = []
 
-    # Recursively search for all image files
-    for img_path in eval_folder.rglob("*"):
-        if any(part.startswith('.') for part in img_path.parts):
-            continue
-
-        if not img_path.is_file() or img_path.suffix.lower() not in img_exts:
-            continue
-
+    for img_path in _eval_images(eval_folder):
         try:
             with Image.open(img_path) as img:
                 image_width, image_height = img.size
@@ -285,8 +286,10 @@ def yolo_to_csv(project_folder:str | Path, yolo_model_folder:str | Path) -> None
 
         # Process matching annotations
         for matching_annotation in matching_annotations:
-            with open(matching_annotation, 'r') as f:
+            with open(matching_annotation, 'r', encoding='utf-8') as f:
                 for line in f.readlines():
+                    if not line.strip():
+                        continue
                     class_id, x_center, y_center, width, height, confidence = map(float, line.strip().split())
                     # Convert relative YOLO coordinates to absolute
                     x, y, abs_width, abs_height = from_relative_coordinates_to_absolute(
@@ -299,7 +302,7 @@ def yolo_to_csv(project_folder:str | Path, yolo_model_folder:str | Path) -> None
                         'Image_Height': image_height,
                         'YOLO_Results_File': str(matching_annotation),
                         'Class_Id': int(class_id),
-                        'Class_Name': get_class_name(int(class_id), get_labels(str(labels_file))),
+                        'Class_Name': get_class_name(int(class_id), labels),
                         'Detected_coordinates': f'{x_center} {y_center} {width} {height}',
                         'Absolute_coordinates': f"{x} {y} {abs_width} {abs_height}",
                         'Confidence': confidence,
@@ -347,17 +350,19 @@ def convert_yolo_annotations_to_label_studio_format(yolo_annotations:list, img_p
     This function helps streamline the process of converting YOLO annotations into Label Studio format, making it easier 
     to visualize and refine the predictions in an interactive environment.
     """
-    labels_file = Path(yolo_model_folder) / 'labels.txt'
+    labels = get_labels(str(Path(yolo_model_folder) / 'labels.txt'))
 
     results = []
 
-        # Get the image dimensions
+    # Get the image dimensions
     with Image.open(img_path) as img:
         image_width, image_height = img.size
         # print(f'Largeur: {image_width}, Hauteur: {image_height}')
     
     # Get the bounding_boxes coordinates
     for line in yolo_annotations:
+        if not line.strip():
+            continue
         class_id, x_center, y_center, width, height, confidence = map(float, line.split())
             # print(f'class id: {class_id}, x center: {x_center}, y center: {y_center}, width: {width}, height: {height}')
 
@@ -375,7 +380,7 @@ def convert_yolo_annotations_to_label_studio_format(yolo_annotations:list, img_p
                     "y": (y_center - height / 2) * 100,
                     "width": width * 100,
                     "height": height * 100,
-                    "rectanglelabels": [f"{get_class_name(int(class_id), get_labels(str(labels_file)))}"]
+                    "rectanglelabels": [get_class_name(int(class_id), labels)]
                 },
             "score": confidence
         }
@@ -478,23 +483,16 @@ def get_ls_for_local_files(project_folder: str | Path, yolo_model_folder: str | 
     final_results_folder.mkdir(parents=True, exist_ok=True)
     
     json_file = final_results_folder / f"{project_name}_ls_local_files.json"
-    img_exts = {".jpg", ".jpeg", ".png", ".tiff"}
 
     all_ls = []
 
-    # Recursively search for all image files
-    for img_path in eval_folder.rglob("*"):
-        if any(part.startswith('.') for part in img_path.parts):
-            continue
-        if not img_path.is_file() or img_path.suffix.lower() not in img_exts:
-            continue
-        
+    for img_path in _eval_images(eval_folder):
         img_name = img_path.stem
         label_txt = labels_folder / f"{img_name}.txt"
 
         if label_txt.exists():
             # 1) Annotated image → Label Studio conversion
-            with open(label_txt, 'r') as f:
+            with open(label_txt, 'r', encoding='utf-8') as f:
                 lines = f.read().splitlines()
             entries = convert_yolo_annotations_to_label_studio_format(
                 lines, str(img_path), yolo_model_folder
@@ -514,7 +512,7 @@ def get_ls_for_local_files(project_folder: str | Path, yolo_model_folder: str | 
         ann['data']['image'] = ann['data']['image'].replace(str(eval_folder), new_prefix).replace("\\",'/')
 
     # Writing the JSON file
-    with open(json_file, 'w') as f:
+    with open(json_file, 'w', encoding='utf-8') as f:
         json.dump(all_ls, f, indent=2)
     print(f"Label Studio annotations written to {json_file}")
     

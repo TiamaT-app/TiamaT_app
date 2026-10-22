@@ -47,7 +47,7 @@ TiamaT follows a structured, iterative cycle. Each pass through the pipeline ref
 
 ## Installation
 
-> **Python 3.10–3.13 required.** Python 3.14 is not yet supported due to a Label Studio compatibility issue.
+> **Python 3.11–3.13 required.** Python 3.14 is not yet supported due to a Label Studio compatibility issue.
 
 ### 1. Prerequisites
 

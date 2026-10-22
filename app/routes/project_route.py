@@ -1,98 +1,100 @@
 """
 Routes de gestion des projets TiamaT.
- 
-Ce fichier regroupe les deux pages liees au choix/creation d'un projet :
-- accueil()        : page d'accueil, choix d'un projet existant ou creation
-                      d'un nouveau projet (route "/")
-- accueil_projet()  : page d'import d'images pour le projet selectionne/cree
-                      (route "/accueil_projet"), qui cree aussi l'arborescence
-                      de dossiers du projet si elle n'existe pas encore.
- 
-Tous les projets vivent sous projects_folder (projects/{nom_du_projet}/),
-distinct du dossier "project" (singulier) qui est le squelette/template
-historique, non utilise dans ce fichier.
+
+- accueil()            : page d'accueil, choix d'un projet existant ou creation
+                         d'un nouveau projet (route "/")
+- accueil_projet()     : page d'import d'images pour le projet selectionne/cree
+                         (route "/accueil_projet"), qui cree aussi l'arborescence
+                         de dossiers du projet si elle n'existe pas encore.
+- gestion_modeles()    : liste des modeles du projet courant, avec lien de telechargement
+- suppression_projet() : suppression du projet courant (POST uniquement)
+
+Tous les projets vivent sous projects_folder (projects/{nom_du_projet}/).
 """
 
 from pathlib import Path
 import os
-import shutil
-import re
 
-from flask import Blueprint , render_template, flash, redirect, url_for
+from flask import Blueprint, render_template, flash, redirect, request, url_for
 import pandas as pd
 
 from app.app import app
-from ..src.models.formulaires import NomDuProjet, ImportImages, ImportModel
+from ..src.models.formulaires import NomDuProjet, ImportImages, ImportModel, ConfirmationSuppression
 
 from app.services.config_service import load_current_project, save_config
-from app.services.project_service import list_existing_projects, create_project_structure
+from app.services.project_service import list_existing_projects, create_project_structure, delete_project
 from app.services.image_service import get_preview_images
+from app.services.label_studio_api_service import delete_ls_projects
 
 
 project_bp = Blueprint("project", __name__)
 
-# Route de l'accueil  pour le choix du projet
-@project_bp.route("/",methods=['GET', 'POST'])
+
+def _project_form() -> NomDuProjet:
+    """Formulaire de choix/creation de projet, avec la liste des projets existants."""
+    form = NomDuProjet()
+    choices = [('', '-- Sélectionner un projet --')] + [(projet, projet) for projet in list_existing_projects()]
+    form.projet_existant.choices = choices  # type: ignore[assignment]
+    return form
+
+
+# Route de l'accueil pour le choix du projet
+@project_bp.route("/", methods=['GET', 'POST'])
 def accueil():
     # pour marquer qu'on est pas en suite d'une passe, utile dans la route suivante
     app.config["SECOND_PASS"] = False
-    form = NomDuProjet()
+    form = _project_form()
+    return render_template("/pages/accueil.html", form=form, liste_projets=list_existing_projects())
 
-    liste_projets = list_existing_projects()
 
-    # Affiche le nom des dossiers existants 
-    choices = [('', '-- Sélectionner un projet --')]+[(projet,projet) for projet in liste_projets]
-    form.projet_existant.choices = choices # type: ignore[assignment]
-    return render_template("/pages/accueil.html" , form = form, liste_projets=liste_projets)
-   
-
-# Route qui permet le chargement des images + affichages de celles déjà chargées
-@project_bp.route("/accueil_projet",methods=['GET', 'POST'])
+# Route qui permet le chargement des images + affichage de celles déjà chargées
+@project_bp.route("/accueil_projet", methods=['GET', 'POST'])
 def accueil_projet():
-    form = NomDuProjet()
-    # Liste des dossiers qui sont dans l'application de base
-    liste_projets = list_existing_projects()
-    
-    # Affiche le nom des dossiers existants => pourquoi on fait ça ici?
-    choices = [('', '-- Sélectionner un projet --')]+[(projet,projet) for projet in liste_projets]  
-    form.projet_existant.choices = choices # type: ignore[assignment]
-    
-    # if not app.config["SECOND_PASS"]:
-        # Si il y a une donnée dans "nom", on check que ce dossier existe pas déjà : 
-    if form.validate_on_submit() and len(str(form.nom.data)) > 0:
-                project_name = form.nom.data
-                if project_name in liste_projets:
-                    return render_template("/pages/erreur_nom_projet.html", project_name=project_name)
-                else:
-                    save_config(project_name=project_name) # type: ignore[assignment]
-        
-        #s'il y a une donnée mais pas dans nom, on prend le nom de projet déjà existant du formulaire
-    elif form.validate_on_submit() and form.projet_existant.data:
-                project_name = form.projet_existant.data
-                save_config(project_name=project_name)
-    else:
-            print(form.errors)
+    form = _project_form()
+
+    # Accès direct, par exemple par le bouton « Retour au projet » : on affiche le projet courant
+    if request.method == "GET":
+        project_name = load_current_project()
+        if project_name not in list_existing_projects():
             flash("Merci de renseigner un nom de projet ou de choisir un projet existant.")
             return redirect(url_for('project.accueil'))
-  
-        
-    '''if app.config["SECOND_PASS"]:
-        project_name = load_current_project()'''
-    
-    project_path = create_project_structure(project_name) # type: ignore[assignment]
-    
-    #ci desssous si le projet existe déjà on sort ses images pour les afficher.
+        return _render_project_page(project_name, form)
+
+    if not form.validate_on_submit():
+        for errors in form.errors.values():
+            for error in errors:
+                flash(error)
+        if not form.errors:
+            flash("Merci de renseigner un nom de projet ou de choisir un projet existant.")
+        return redirect(url_for('project.accueil'))
+
+    # Création d'un nouveau projet : on vérifie que ce nom n'est pas déjà pris
+    if form.nom.data:
+        project_name = form.nom.data
+        if project_name in list_existing_projects():
+            return render_template("/pages/erreur_nom_projet.html", project_name=project_name)
+    # Sinon, sélection d'un projet existant dans la liste déroulante
+    elif form.projet_existant.data:
+        project_name = form.projet_existant.data
+    else:
+        flash("Merci de renseigner un nom de projet ou de choisir un projet existant.")
+        return redirect(url_for('project.accueil'))
+
+    save_config(project_name=project_name)
+    return _render_project_page(project_name, form)
+
+
+def _render_project_page(project_name: str, form: NomDuProjet):
+    """Page d'accueil d'un projet : crée son arborescence si besoin et affiche un aperçu de ses images."""
+    project_path = create_project_structure(project_name)
     chemin_images = project_path / "image_inputs" / "ground_truth_images"
     liste_images, liste_noms, nbre_images = get_preview_images(chemin_images)
-    
-
     chemin_labels = project_path / "annotations" / "ground_truth"
-    form2 = ImportImages()
-        
+
     return render_template(
-        "/pages/import_images.html", 
+        "/pages/import_images.html",
         project_name=project_name,
-        form2=form2,
+        form2=ImportImages(),
         form=form,
         liste_images=liste_images,
         liste_noms=liste_noms,
@@ -101,43 +103,53 @@ def accueil_projet():
         chemin_labels=chemin_labels)
 
 
-@project_bp.route("/gestion_modeles",methods=['GET', 'POST'])
+@project_bp.route("/gestion_modeles", methods=['GET', 'POST'])
 def gestion_modeles():
     project_name = load_current_project()
     form = ImportModel()
+    csv_file = Path("projects") / project_name / f"{project_name}.csv"
 
-    if (Path("projects")/project_name/f"{project_name}.csv").is_file():
-        df = pd.read_csv(Path("projects")/project_name/f"{project_name}.csv")
-        liste_urls =[] 
-        for index, row in df.iterrows():
-                        path_model = Path.cwd()/"output"/"train"/row["model_name"]/ "weights"/"best.pt"
-                        if os.path.isfile(path_model):
-                            liste_urls.append(f'<a href="/download/{path_model}" class="btn btn-primary btn-sm">Download</a>')
-                        else:
-                            liste_urls.append(f"Erreur avec le modèle {row['model_name']}")
-        df["urls"]= liste_urls 
-        return render_template("pages/gestion_modeles.html", tables=[df.to_html(classes='data', escape=False)], titles=df.columns.values, nom_projet = project_name, form = form)
-
-    else:
+    if not csv_file.is_file():
         return render_template("pages/gestion_modele2.html", form=form)
 
-@project_bp.route("/suppression_projet_check", methods=["GET", "POST"])
-def check_projet():
-      project_name = load_current_project()
-      return render_template("pages/supression_projet_check.html", project_name=project_name)
+    df = pd.read_csv(csv_file)
+    liste_urls = []
+    for _, row in df.iterrows():
+        path_model = Path.cwd() / "output" / "train" / row["model_name"] / "weights" / "best.pt"
+        if os.path.isfile(path_model):
+            liste_urls.append(f'<a href="/download/{path_model}" class="btn btn-primary btn-sm">Download</a>')
+        else:
+            liste_urls.append(f"Erreur avec le modèle {row['model_name']}")
+    df["urls"] = liste_urls
+    return render_template("pages/gestion_modeles.html", tables=[df.to_html(classes='data', escape=False)],
+                           titles=df.columns.values, nom_projet=project_name, form=form)
 
-@project_bp.route("/supression_projet", methods=["GET", "POST"])
+
+# POST uniquement : une suppression ne doit jamais pouvoir se déclencher
+# en visitant simplement l'URL (lien, historique, préchargement du navigateur).
+@project_bp.route("/suppression_projet", methods=["POST"])
 def suppression_projet():
-      project_name = load_current_project()
-      project_models = (pd.read_csv(Path.cwd()/ "projects"/ project_name / f"{project_name}.csv")["model_name"]).tolist()
-      for i in project_models:
-            shutil.rmtree(Path.cwd()/"output"/ "train"/ i)
-            for z in os.listdir(Path.cwd()/'output'/"predict"):
-                if re.match(rf'^{re.escape(i)}_{re.escape(i)}_\d{{8}}_\d{{6}}$', z):
-                      shutil.rmtree(Path.cwd()/'output'/"predict"/z)
-                else:
-                      pass
-      shutil.rmtree(Path.cwd()/"data"/project_name)
-      shutil.rmtree(Path.cwd()/"projects"/project_name)
-      flash(f"Projet {project_name} supprimé. ")
-      return redirect(url_for('project.accueil'))
+    form = ConfirmationSuppression()
+    if not form.validate_on_submit():
+        flash("La demande de suppression n'a pas pu être vérifiée, merci de réessayer.")
+        return redirect(url_for('project.accueil'))
+
+    project_name = load_current_project()
+    try:
+        delete_project(project_name)
+    except ValueError:
+        flash("Aucun projet valide à supprimer.")
+        return redirect(url_for('project.accueil'))
+
+    # Le projet supprimé ne doit plus être le projet courant
+    save_config(project_name="")
+    flash(f"Projet {project_name} supprimé.")
+
+    # Ses projets dans Label Studio, sans quoi un nouveau projet du même nom les retrouverait
+    try:
+        delete_ls_projects(project_name)
+    except Exception as e:
+        print(f"Projets Label Studio de {project_name} non supprimés : {e}")
+        flash(f"Les projets de « {project_name} » n'ont pas pu être supprimés dans Label Studio ({e}). "
+              f"Supprimez-les dans Label Studio avant de recréer un projet de ce nom.")
+    return redirect(url_for('project.accueil'))

@@ -1,11 +1,78 @@
 import shutil
+import unicodedata
+from datetime import datetime
 from pathlib import Path
+from urllib.parse import unquote
 
 import pandas as pd
 from PIL import Image
 
 from ..modules.folders_path import *
-from ..modules.manipulate_files import change_ids_and_path, get_gt_project_id
+from ..modules.manipulate_files import open_json_file, save_json_file, change_ids_and_path, get_gt_project_id
+
+IMG_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.tif', '.tiff'}
+
+
+def _images(folder: Path) -> list[Path]:
+    """Images du dossier, sans les fichiers caches (._f1.jpg crees par macOS sur les disques externes)."""
+    return [f for f in Path(folder).iterdir()
+            if f.is_file() and f.suffix.lower() in IMG_EXTENSIONS and not f.name.startswith('.')]
+
+
+def _image_key(image_url: str) -> str:
+    """
+    Forme unique du chemin d'image d'une annotation, pour reconnaitre deux annotations de la meme
+    image : decode (Label Studio enregistre noam%C3%A9 pour noamé), separateurs et Unicode normalises.
+    """
+    return unicodedata.normalize("NFC", unquote(image_url).replace("\\", "/"))
+
+
+def _annotation_date(annotation_file: Path, data: dict) -> datetime:
+    """
+    Date de derniere modification d'une annotation : le champ updated_at (ou created_at)
+    ecrit par Label Studio, a defaut la date de modification du fichier.
+    """
+    for field in ("updated_at", "created_at"):
+        value = data.get(field)
+        if value:
+            try:
+                return datetime.fromisoformat(str(value).replace("Z", "+00:00")).replace(tzinfo=None)
+            except ValueError:
+                pass
+    return datetime.fromtimestamp(annotation_file.stat().st_mtime)
+
+
+def _keep_latest_corrections(corrections: list[Path]) -> list[Path]:
+    """
+    Une seule correction par image : si une image a plusieurs fichiers de correction (image
+    corrigee deux fois), seul le plus recent est garde, les autres sont supprimes.
+    Renvoie les fichiers gardes.
+    """
+    by_image: dict[str, list[tuple[datetime, Path]]] = {}
+    for correction_file in corrections:
+        data = open_json_file(correction_file)
+        key = _image_key(data['task']['data']['image'])
+        by_image.setdefault(key, []).append((_annotation_date(correction_file, data), correction_file))
+
+    kept = []
+    for key, versions in by_image.items():
+        versions.sort(key=lambda version: version[0])
+        latest = versions[-1][1]
+        kept.append(latest)
+        for _, older in versions[:-1]:
+            older.unlink()
+            print(f"⚠️ {older.name} : correction plus ancienne de la même image que {latest.name}, supprimée")
+    return sorted(kept)
+
+
+def _free_name(folder: Path, name: str) -> str:
+    """Premier nom libre dans folder : name, puis stem_1.ext, stem_2.ext..."""
+    stem, suffix = Path(name).stem, Path(name).suffix
+    candidate, number = name, 0
+    while (folder / candidate).exists():
+        number += 1
+        candidate = f"{stem}_{number}{suffix}"
+    return candidate
 
 def create_new_ground_truth(project_folder:str | Path, yolo_model_folder:str | Path, create_groundtruth:bool) -> None:
     """
@@ -82,16 +149,14 @@ def create_new_ground_truth(project_folder:str | Path, yolo_model_folder:str | P
     
     # Copy images to the new dataset
     copied_imgs = 0
-    img_exts = {'.jpg', '.jpeg', '.png', '.tif', '.tiff'}
-    for file in eval_folder.iterdir():
+    for file in _images(eval_folder):
         # Remove transformed images
         if file.stem.endswith('_PT'):
             file.unlink()
             print(f"The transformed image {file} has been removed")
         else:
-            if file.is_file() and file.suffix.lower() in img_exts:
-                shutil.copy2(str(file), str(img_folder/ file.name))
-                copied_imgs +=1
+            shutil.copy2(str(file), str(img_folder/ file.name))
+            copied_imgs +=1
     print(f"[OK] {copied_imgs} image(s) copied to {img_folder}")
 
     # Copy the labels file
@@ -112,6 +177,9 @@ def move_correction_files_and_images(project_folder:str | Path) -> None:
       - Moving correction JSON files from `annotations/prediction_corrections/` into `annotations/ground_truth/`.
       - Ensuring that annotation filenames are unique (incrementing the filename number if necessary).
       - Updating the "id" field inside each JSON annotation to match its new filename.
+      - Keeping one annotation per image, the most recent one: if an image has several correction
+        files, or already has an annotation in the ground truth (the same image tested again),
+        the older annotations are deleted.
 
     Parameters
     ----------
@@ -137,34 +205,76 @@ def move_correction_files_and_images(project_folder:str | Path) -> None:
     eval_folder = Path(get_img_folder_inference(project_folder))
     ground_truth_folder = Path(get_ground_truth_folder_training(project_folder))
     pred_cors_folder = Path(get_corrections_folder_inference(project_folder))
-    
 
-    # Move .jpg images to the annotated images folder
-    img_exts = {'.jpg', '.jpeg', '.png', '.tif', '.tiff'}
-    for file in eval_folder.iterdir():
-        if file.is_file() and file.suffix.lower() in img_exts:
-            shutil.move(str(file), str(ground_truth_img_folder / file.name))
+    # Move the images to the annotated images folder. An image is never overwritten: if an
+    # other image of the ground truth already has the same name, the moved one is renamed
+    # (f1_1.jpg) and its correction file is updated accordingly.
+    renamed_images = {}
+    for file in _images(eval_folder):
+        destination = ground_truth_img_folder / file.name
+        if destination.exists() and destination.read_bytes() == file.read_bytes():
+            file.unlink()  # same image already in the ground truth
+            continue
+        new_name = _free_name(ground_truth_img_folder, file.name)
+        if new_name != file.name:
+            renamed_images[file.name] = new_name
+            print(f"⚠️ {file.name} already exists in {ground_truth_img_folder}: moved as {new_name}")
+        shutil.move(str(file), str(ground_truth_img_folder / new_name))
     print(f"Images moved from {eval_folder} to {ground_truth_img_folder}")
 
     project_id = get_gt_project_id(ground_truth_folder)
 
-    # Move correction files to the annotations folder
-    for file in pred_cors_folder.iterdir():
-        if file.is_file() and not file.name.startswith('.'):
-            # Ensure unique file name
-            annotation_number = int(Path(file).stem)
-            new_annotation = ground_truth_folder / str(annotation_number)
+    # Annotation numbers already used in the ground truth ("12" or "12.json")
+    used_numbers = {int(f.stem) for f in ground_truth_folder.iterdir() if f.stem.isdigit()}
 
-            while new_annotation.exists():
-                annotation_number += 1
-                new_annotation = ground_truth_folder / str(annotation_number)
-                
-            shutil.move(str(pred_cors_folder /file), str(new_annotation))
+    # Ground truth annotations already on the disk, indexed by image
+    ground_truth_by_image = {}
+    for gt_file in ground_truth_folder.iterdir():
+        if gt_file.is_file() and not gt_file.name.startswith('.'):
+            ground_truth_by_image[_image_key(open_json_file(gt_file)['task']['data']['image'])] = gt_file
 
-            # Changes the 'id' field in the JSON file to the basename of the file path
-            change_ids_and_path(new_annotation, project_id)
-            
-    print(f"Annotations files corrected and moved to {str(pred_cors_folder)}")
+    corrections = [f for f in pred_cors_folder.iterdir() if f.is_file() and not f.name.startswith('.')]
+
+    # Move correction files to the annotations folder (one correction per image, the most recent)
+    for file in _keep_latest_corrections(corrections):
+
+        # Ensure a unique number, and keep the extension of the file (or its absence):
+        # removing it would make the file invisible to anything looking for .json files.
+        annotation_number = int(file.stem) if file.stem.isdigit() else max(used_numbers, default=0) + 1
+        while annotation_number in used_numbers:
+            annotation_number += 1
+        used_numbers.add(annotation_number)
+        new_annotation = ground_truth_folder / f"{annotation_number}{file.suffix}"
+
+        shutil.move(str(file), str(new_annotation))
+
+        # Changes the 'id' field in the JSON file to the basename of the file path
+        change_ids_and_path(new_annotation, project_id)
+
+        # Point to the new name of the image if it had to be renamed
+        data = open_json_file(new_annotation)
+        if renamed_images:
+            image_path = data['task']['data']['image']
+            old_name = image_path.rsplit('/', 1)[-1]
+            if old_name in renamed_images:
+                data['task']['data']['image'] = image_path[:-len(old_name)] + renamed_images[old_name]
+                save_json_file(new_annotation, data)
+
+        # The same image already annotated in the ground truth: the most recent annotation is kept
+        key = _image_key(data['task']['data']['image'])
+        previous = ground_truth_by_image.get(key)
+        if previous is not None and previous != new_annotation and previous.exists():
+            if _annotation_date(previous, open_json_file(previous)) > _annotation_date(new_annotation, data):
+                # The correction is older than the ground truth annotation (for example an old
+                # correction exported again by Label Studio): it must not replace it
+                new_annotation.unlink()
+                print(f"⚠️ {file.name} : correction plus ancienne que l'annotation {previous.name} de la même image, ignorée")
+                continue
+            previous.unlink()
+            print(f"⚠️ {previous.name} : ancienne annotation de la même image, remplacée par {new_annotation.name}")
+        ground_truth_by_image[key] = new_annotation
+
+    print(f"Annotations files corrected and moved to {ground_truth_folder}")
 
 def add_csv_data(project_folder:str | Path, yolo_model_folder:str | Path) -> None:
     """
@@ -210,9 +320,6 @@ def add_csv_data(project_folder:str | Path, yolo_model_folder:str | Path) -> Non
     non_annotated_csv = eval_folder / f'{project_name}.csv'
     annotated_csv = ground_truth_img_folder / f"{project_name}_data.csv"
 
-    img_exts = {'.jpg', '.jpeg', '.png', '.tif', '.tiff'}
-
-
     # 2. Existence checks
     exists_non = non_annotated_csv.exists()
     exists_ann = annotated_csv.exists()
@@ -220,10 +327,7 @@ def add_csv_data(project_folder:str | Path, yolo_model_folder:str | Path) -> Non
         print("No CSV found.")
         
         data = []
-        images = [
-            img for img in ground_truth_img_folder.iterdir()
-            if img.is_file() and img.suffix.lower() in img_exts
-        ]
+        images = _images(ground_truth_img_folder)
 
         for file in images:
             img_name = file.stem
@@ -264,10 +368,7 @@ def add_csv_data(project_folder:str | Path, yolo_model_folder:str | Path) -> Non
         existing_names = set(df_annot['Image_name'])
 
         # Build the list of images to consider
-        images = [
-            img for img in ground_truth_img_folder.iterdir()
-            if img.is_file() and img.suffix.lower() in img_exts
-        ]
+        images = _images(ground_truth_img_folder)
 
         new_rows = []
         for img_path in images:
@@ -278,14 +379,14 @@ def add_csv_data(project_folder:str | Path, yolo_model_folder:str | Path) -> Non
 
             with Image.open(img_path) as img:
                 absolute_path = img.filename
+                img_format = img.format
                 w, h  = img.size
-                img_size = w * h
 
             new_rows.append({
                 'Image_name'   : str(img_name),
                 'Folder'       : str(ground_truth_img_folder.name),
                 'Absolute_path': absolute_path,
-                'Format'       : img.format,
+                'Format'       : img_format,
                 'Width'        : w,
                 'Height'       : h,
                 'Image_size'   : w * h
@@ -333,7 +434,7 @@ def clean_data(project_folder:str | Path) -> None:
 
     This function deletes:
     - all transformed image files (with suffix '_PT') from the images folder
-    - all annotation files from the labels folder
+    - their annotation files (with suffix '_PT') from the labels folder
 
     The function operates in-place and permanently removes files from disk.
 
@@ -352,14 +453,14 @@ def clean_data(project_folder:str | Path) -> None:
     img_folder = data_folder / 'images'
     labels_folder = data_folder / 'labels'
 
-    img_exts = {'.jpg', '.jpeg', '.png', '.tif', '.tiff'}
-    
-    
-    # Revome the transformed images (identified by '_PT' suffix in filename)
+    if not img_folder.exists() or not labels_folder.exists():
+        print(f"[WARN] Nothing to clean in {data_folder}")
+        return
+
+    # Remove the transformed images (identified by '_PT' suffix in filename)
     removed_images = 0
-    for img in img_folder.iterdir():
-        if (img.is_file() and img.suffix.lower() in img_exts 
-            and img.stem.endswith('_PT')):
+    for img in _images(img_folder):
+        if img.stem.endswith('_PT'):
             img.unlink()
             removed_images += 1
             
@@ -376,4 +477,3 @@ def clean_data(project_folder:str | Path) -> None:
             
             
     print(f"[OK] {removed_annotations} transformed annotation(s) removed from {labels_folder}")
-    

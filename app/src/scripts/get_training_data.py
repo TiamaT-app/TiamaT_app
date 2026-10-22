@@ -1,5 +1,6 @@
 import shutil
 from pathlib import Path
+from urllib.parse import unquote
 
 import pandas as pd
 from PIL import Image
@@ -13,29 +14,47 @@ from ..modules.manipulate_files import open_json_file
 from ..modules.generate_labels import  get_labels, create_labels_file
 
 
+IMG_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
+
+
+def normalized_image_name(filename: str) -> str:
+    """
+    Nom d'image normalise, sans accent ni caractere special, en minuscules :
+    "Épître 01.JPG" -> "epitre_01.jpg", "Œuvre complète.png" -> "oeuvre_complete.png".
+
+    C'est la regle unique utilisee a l'import des images (upload_routes) et par
+    clean_image_name : une image importee par l'app n'est donc jamais renommee une 2e fois.
+    slugify translittere les accents et les autres alphabets (é -> e, Ελληνικά -> ellenika)
+    et retire tout le reste (/, .., espaces...). Un nom fait uniquement de symboles
+    deviendrait vide : il est remplace par "image".
+    """
+    stem, extension = Path(filename).stem, Path(filename).suffix
+    return (slugify(stem, separator="_") or "image") + extension.lower()
+
+
 def clean_image_name(project_folder) -> None:
+    """
+    Renomme les images de verite terrain du projet avec normalized_image_name
+    (utile pour les images ajoutees au projet sans passer par l'import de l'app).
+    Une image n'est jamais renommee si le nouveau nom est deja pris par une autre image.
+    """
     ground_truth_folder = Path(get_img_folder_training(project_folder))
 
     renamed_files = []
     for img_file in ground_truth_folder.iterdir():
-        if not img_file.is_file() or img_file.stem.startswith("."):
-            continue
-        
-        # Extract name without extension and normalized
-        filename = img_file.stem
-        normalized_filename = slugify(filename, separator="_")
-
-        # Create a new path if the name isn't already normalized 
-        new_filepath = img_file.with_stem(normalized_filename)
-
-        if new_filepath == img_file:
-            continue
-        
-        if new_filepath.exists():
-            print(f"⚠️ Fichier déjà existant, ignoré : {img_file.name}")
+        if not img_file.is_file() or img_file.name.startswith("."):
             continue
 
-        # Rename the file
+        new_filepath = img_file.with_name(normalized_image_name(img_file.name))
+        if new_filepath.name == img_file.name:
+            continue
+
+        # Sur Mac, F1.jpg et f1.jpg designent le meme fichier : exists() repond oui,
+        # mais ce n'est pas un conflit avec une autre image (samefile le verifie).
+        if new_filepath.exists() and not new_filepath.samefile(img_file):
+            print(f"⚠️ Fichier déjà existant, ignoré : {img_file.name} (le nom {new_filepath.name} est déjà pris)")
+            continue
+
         img_file.rename(new_filepath)
         renamed_files.append((img_file.name, new_filepath.name))
 
@@ -75,9 +94,8 @@ def create_csv_file(project_folder:str) -> None:
     if not img_folder.exists():
         raise FileNotFoundError(f"Image folder not found: {img_folder}")
     
-    img_exts = {".jpg", ".jpeg", ".png", ".tiff"}
-    
-    images = [img for img in img_folder.iterdir() if img.suffix.lower() in img_exts]
+    images = [img for img in img_folder.iterdir()
+              if img.suffix.lower() in IMG_EXTENSIONS and not img.name.startswith('.')]
 
     # Retrieve the size for each image and save the relevant information in a dictionary
     data = []
@@ -152,19 +170,28 @@ def create_annotations_file(project_folder:str) -> None:
         annotations = open_json_file(annotation_file)
 
         # Get the name of the image
-        img_path = annotations['task']['data']['image']
-        img_path =img_path.replace("%5C","\\")
+        # Label Studio encode les caracteres speciaux du chemin (%5C pour l'antislash de Windows,
+        # %20 pour un espace...) : on les decode, puis on uniformise les separateurs
+        # pour que le nom de l'image soit trouve quel que soit le systeme.
+        img_path = unquote(annotations['task']['data']['image']).replace("\\", "/")
         img_name = Path(img_path).stem
-        
-        with open(labels_folder / f"{img_name}.txt", 'w') as yolo_annotation:
-            print(f"création d'{img_name}.txt.")
-            for result in annotations['result']:
-                value = result['value']
-                x, y, w, h = from_ls_to_yolo(value['x'], value['y'], value['width'], value['height'])
-                classe_name = value['rectanglelabels'][0]
-                classe_id = get_class_code(classe_name, labels)
 
-                yolo_annotation.write(f"{classe_id} {x} {y} {w} {h}\n")
+        # Toutes les lignes sont preparees avant d'ecrire le fichier : en cas de classe
+        # inconnue, aucun fichier YOLO a moitie ecrit ne reste sur le disque.
+        lines = []
+        for result in annotations['result']:
+            value = result['value']
+            x, y, w, h = from_ls_to_yolo(value['x'], value['y'], value['width'], value['height'])
+            classe_name = value['rectanglelabels'][0]
+            classe_id = get_class_code(classe_name, labels)
+            if classe_id == 'unknown-class':
+                raise ValueError(
+                    f"La classe '{classe_name}' (annotation {annotation_file.name}) est absente de {labels_file}.")
+            lines.append(f"{classe_id} {x} {y} {w} {h}\n")
+
+        with open(labels_folder / f"{img_name}.txt", 'w', encoding='utf-8') as yolo_annotation:
+            print(f"création d'{img_name}.txt.")
+            yolo_annotation.writelines(lines)
     
     print(f"Annotations successfully converted and saved")
 
@@ -188,11 +215,11 @@ def clean_classes_file(project_folder:str | Path) -> None:
 
     try:
         # Read class names from classes.txt
-        with open(classes_txt_path, 'r') as f:
+        with open(classes_txt_path, 'r', encoding='utf-8') as f:
             classes = [line.strip() for line in f if line.strip()]
 
         # Write cleaned content to labels.txt
-        with open(labels_txt_path, 'w') as f:
+        with open(labels_txt_path, 'w', encoding='utf-8') as f:
             for i, class_name in enumerate(classes):
                 f.write(f"'{i}': '{class_name}'\n")
 
@@ -227,13 +254,44 @@ def get_img_training_data(project_folder:str) -> None:
     if not img_folder_training.exists() or not img_folder_training.is_dir():
         raise NotADirectoryError(f"Can't find the ground truth image folder: {img_folder_training}")
     
-    img_exts = {'.jpg', '.jpeg', '.png', '.tiff'}
-    img_files = [img for img in img_folder_training.iterdir() if img.suffix.lower()in img_exts and not img.name.startswith('.')]
+    img_files = [img for img in img_folder_training.iterdir()
+                 if img.suffix.lower() in IMG_EXTENSIONS and not img.name.startswith('.')]
     
     for img_path in img_files:
         shutil.copy2(img_path, img_folder /img_path.name)
 
     print(f"Images copied in {img_folder}")
+
+def add_missing_classes(project_folder, labels_file) -> None:
+    """
+    Ajoute a labels_file les classes presentes dans les annotations de verite terrain
+    mais absentes du fichier (classe creee dans Label Studio apres le premier cycle).
+
+    Les classes existantes gardent leur numero ; les nouvelles prennent les numeros
+    suivants, dans l'ordre alphabetique pour que le resultat soit toujours le meme.
+    """
+    labels = get_labels(str(labels_file))
+    annotation_folder = Path(get_ground_truth_folder_training(project_folder))
+
+    found_classes = set()
+    for annotation_file in annotation_folder.iterdir():
+        if annotation_file.name.startswith('.'):
+            continue
+        for result in open_json_file(annotation_file)['result']:
+            rectangle_labels = result.get('value', {}).get('rectanglelabels', [])
+            if rectangle_labels:
+                found_classes.add(rectangle_labels[0])
+
+    new_classes = sorted(found_classes - set(labels.values()))
+    if not new_classes:
+        return
+
+    next_id = max(map(int, labels.keys()), default=-1) + 1
+    with open(labels_file, 'a', encoding='utf-8') as f:
+        for offset, class_name in enumerate(new_classes):
+            f.write(f"'{next_id + offset}': '{class_name}'\n")
+    print(f"Nouvelle(s) classe(s) ajoutée(s) à {labels_file} : {new_classes}")
+
 
 def create_dataset(project_folder, manually_downloaded):
     """
@@ -297,7 +355,7 @@ def create_dataset(project_folder, manually_downloaded):
             if file_path.is_file():
                 shutil.copy2(file_path, ground_truth_folder_training / file_path.name)
 
-        create_csv_file(project_name)
+        create_csv_file(project_folder)
 
     else:
         labels_file = data_folder / 'labels.txt'
@@ -306,8 +364,11 @@ def create_dataset(project_folder, manually_downloaded):
 
         
         create_csv_file(project_folder)
-        # IMPORTANT pour éviter qu'un labels.txt avec le mauvais code soit recréé sur les images ajoutées en fin de cycle 
+        # IMPORTANT : on ne recree pas un labels.txt existant, pour que les classes gardent
+        # leur numero d'un cycle a l'autre. Les classes apparues depuis sont ajoutees a la suite.
         if not labels_file.exists():
             create_labels_file(project_folder)
+        else:
+            add_missing_classes(project_folder, labels_file)
         create_annotations_file(project_folder)
         get_img_training_data(project_folder)

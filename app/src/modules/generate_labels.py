@@ -23,12 +23,13 @@ Contents:
 from pathlib import Path
 import shutil
 import random
+from xml.sax.saxutils import quoteattr
 
 from .folders_path import *
 from .manipulate_files import open_json_file
 
 
-def get_labels(labels_file):
+def get_labels(labels_file:str) -> dict:
     """
     This functions checks if the file 'labels.txt' exists. 
     If not, it generated a .txt file with the generic names for each existing class "class1" to "classN". 
@@ -95,7 +96,7 @@ def create_labels_file(project_folder:str) -> None:
                 print(f"Il y a un problème avec le fichier {annotation_file}. Erreur : {e}")
                 raise
 
-        classes = list(unique_classes)
+        classes = sorted(unique_classes)
         print(classes)
 
         with open(labels_file, 'w', encoding='utf-8') as file:
@@ -158,7 +159,7 @@ def add_new_labels(project_folder:str | Path, yolo_model_folder:str | Path) -> N
             if labels_ls:
                 unique_classes.add(labels_ls[0])
 
-    corrected_classes = list(unique_classes)
+    corrected_classes = sorted(unique_classes)
     
     # Identify labels that are not already in the training set
     new_labels = [c for c in corrected_classes if c not in existing_values]
@@ -221,7 +222,7 @@ def build_ls_label_config(labels: list | dict) -> str:
     label_backgrounds = ""
     for label in labels_name:
         random_colour = generate_random_colours()
-        label_backgrounds += f'        <Label value="{label}" background="{random_colour}"/>\n'
+        label_backgrounds += f'        <Label value={quoteattr(label)} background="{random_colour}"/>\n'
 
     return labeling_template.format(label_backgrounds=label_backgrounds)
 

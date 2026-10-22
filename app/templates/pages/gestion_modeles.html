@@ -20,8 +20,10 @@
     <p class="chapo">Importez un modèle déjà entraîné ailleurs (.pt) pour le rendre disponible dans ce projet.</p>
     {% include "partials/upload_model.html" %}
   </div>
-
-  {{ ui.bouton("Retourner à l'accueil", href="/", variante="doux") }}
+  <div class="boutons-retour">
+    {{ ui.bouton("Retour au projet", href=url_for('project.accueil_projet'), variante="orange") }} 
+    {{ ui.bouton("Retourner à l'accueil", href="/", variante="noir") }}
+  </div>
 </div>
 
 {% endblock %}
