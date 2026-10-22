@@ -205,6 +205,9 @@ def evaluate_model():
     # Images de test omises de l'évaluation (utilisées pour l'entraînement, ou non corrigées),
     # à afficher pour que les scores puissent être interprétés : [{"image": ..., "raison": ...}]
     images_omises = read_omitted_images(project_folder, model_folder)
+    if images_omises:
+        flash(f"{len(images_omises)} image(s) de test omise(s) de l'évaluation : "
+                f"le détail est indiqué sous les résultats.")
 
     if matrix_path is None:
         return render_template("/pages/no_evaluation.html", project_name=project_name,

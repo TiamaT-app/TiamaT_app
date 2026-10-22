@@ -159,11 +159,14 @@ def test_evaluation(client, projet, faux_evaluation, mocker):
     mocker.patch.object(testing_routes, "read_omitted_images", return_value=omises)
     rendu = mocker.spy(testing_routes, "render_template")
 
+    flash = mocker.spy(testing_routes, "flash")
+
     page = client.get("/evaluate_model").get_data(as_text=True)
 
     assert f"output/predict/manuscrits_{MODELE}/results/confusion_matrix.png" in page
     # La liste des images omises est transmise à la page
     assert rendu.call_args.kwargs["images_omises"] == omises
+    assert "1 image(s) de test omise(s)" in flash.call_args.args[0]
 
 
 def test_evaluation_sans_correction(client, projet, faux_evaluation, mocker):

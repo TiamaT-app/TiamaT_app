@@ -844,6 +844,7 @@ html[data-vue="projets"] .vue-accueil { display: none; }
 .resultats-corps { color: var(--noir); padding-block: clamp(1.5rem, 4vw, 2.5rem); }
 .resultats-corps--creme { background: var(--creme); }
 .resultats-corps--bleu { background: var(--bleu); }
+.resultats-corps--vert { background: var(--vert);}
 .resultats { display: flex; flex-direction: column; gap: clamp(1.5rem, 4vw, 2.5rem); }
 .resultat { display: flex; align-items: center; gap: clamp(1.5rem, 4vw, 3rem); }
 .resultat--inverse { flex-direction: row-reverse; }

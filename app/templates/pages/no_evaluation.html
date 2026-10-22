@@ -17,4 +17,19 @@
   {{ ui.bouton("Tester de nouvelles images", href=url_for('testing.test_pretrained'), fleche=true) }}
 </section>
 
+{% if images_omises %}
+<section class="page">
+<div class="panneau panneau--orange">
+<p class="etiquette">À prendre en compte</p>
+<h2>Images omises de l'évaluation ({{ images_omises|length }})</h2>
+<p class="chapo">Une image dont les prédictions sont toutes justes doit tout de même être validée dans Label Studio pour être évaluée.</p>
+<ul>
+  {% for image in images_omises %}
+  <li><strong>{{ image.image }}</strong> : {{ image.raison }}</li>
+  {% endfor %}
+</ul>
+</div>
+</section>
+{% endif %}
+
 {% endblock %}
