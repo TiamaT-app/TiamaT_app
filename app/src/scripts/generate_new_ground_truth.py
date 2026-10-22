@@ -260,10 +260,16 @@ def move_correction_files_and_images(project_folder:str | Path) -> None:
                 data['task']['data']['image'] = image_path[:-len(old_name)] + renamed_images[old_name]
                 save_json_file(new_annotation, data)
 
-        # The same image already annotated in the ground truth: the new correction replaces it
+        # The same image already annotated in the ground truth: the most recent annotation is kept
         key = _image_key(data['task']['data']['image'])
         previous = ground_truth_by_image.get(key)
         if previous is not None and previous != new_annotation and previous.exists():
+            if _annotation_date(previous, open_json_file(previous)) > _annotation_date(new_annotation, data):
+                # The correction is older than the ground truth annotation (for example an old
+                # correction exported again by Label Studio): it must not replace it
+                new_annotation.unlink()
+                print(f"⚠️ {file.name} : correction plus ancienne que l'annotation {previous.name} de la même image, ignorée")
+                continue
             previous.unlink()
             print(f"⚠️ {previous.name} : ancienne annotation de la même image, remplacée par {new_annotation.name}")
         ground_truth_by_image[key] = new_annotation

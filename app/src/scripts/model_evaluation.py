@@ -268,6 +268,15 @@ def get_csv_results(project_folder: str | Path, yolo_model_folder: str | Path, a
     eval_images = _eval_images(project_folder)
     omitted = []
 
+    # Seules les corrections des images du lot de test en cours sont évaluées. Une correction
+    # d'un cycle précédent (réexportée par Label Studio, par exemple) serait sinon comptée
+    # comme un objet manqué par le modèle, qui n'a fait aucune prédiction sur cette image.
+    stale = [p for p in corrected_files if Path(p).stem not in eval_images]
+    if stale:
+        print(f"⚠️ {len(stale)} correction(s) d'images absentes du lot de test ignorée(s) : "
+              f"{', '.join(Path(p).stem for p in stale)}")
+        corrected_files = [p for p in corrected_files if Path(p).stem in eval_images]
+
     if not all_results:
         img_use_for_training = get_img_from_training(project_folder, yolo_model_folder)
         predictions_files = exclude_training_images(predictions_files, img_use_for_training)

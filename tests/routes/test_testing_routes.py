@@ -158,13 +158,12 @@ def test_evaluation(client, projet, faux_evaluation, mocker):
     omises = [{"image": "f5.jpg", "raison": "image non corrigée (non validée) dans Label Studio"}]
     mocker.patch.object(testing_routes, "read_omitted_images", return_value=omises)
     rendu = mocker.spy(testing_routes, "render_template")
-
     flash = mocker.spy(testing_routes, "flash")
 
     page = client.get("/evaluate_model").get_data(as_text=True)
 
     assert f"output/predict/manuscrits_{MODELE}/results/confusion_matrix.png" in page
-    # La liste des images omises est transmise à la page
+    # La liste des images omises est transmise à la page, et un message les signale
     assert rendu.call_args.kwargs["images_omises"] == omises
     assert "1 image(s) de test omise(s)" in flash.call_args.args[0]
 
@@ -185,10 +184,25 @@ def test_evaluation_classe_inconnue(client, projet, faux_evaluation, mocker):
 
 def test_fin_de_cycle(client, projet, mocker):
     etapes = {nom: mocker.patch.object(testing_routes, nom) for nom in
-              ["create_new_ground_truth", "move_correction_files_and_images", "add_csv_data", "clean_data"]}
+              ["create_new_ground_truth", "move_correction_files_and_images", "add_csv_data", "clean_data",
+               "delete_ls_projects"]}
 
     reponse = client.get("/dispatch_corrections")
 
     assert reponse.status_code == 200
     for etape in etapes.values():
         etape.assert_called_once()
+    # Seul le projet de correction est supprimé dans Label Studio
+    etapes["delete_ls_projects"].assert_called_once_with("manuscrits", corrections_only=True)
+
+
+def test_fin_de_cycle_si_label_studio_n_est_pas_lance(client, projet, mocker):
+    # La fin de cycle se fait quand même, et l'utilisateur est prévenu.
+    for nom in ["create_new_ground_truth", "move_correction_files_and_images", "add_csv_data", "clean_data"]:
+        mocker.patch.object(testing_routes, nom)
+    mocker.patch.object(testing_routes, "delete_ls_projects",
+                        side_effect=RuntimeError("Label Studio n'est pas lancé"))
+    flash = mocker.spy(testing_routes, "flash")
+
+    assert client.get("/dispatch_corrections").status_code == 200
+    assert "Label Studio n'est pas lancé" in flash.call_args.args[0]

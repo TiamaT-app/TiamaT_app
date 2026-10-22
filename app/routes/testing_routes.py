@@ -36,7 +36,7 @@ from .upload_routes import save_without_overwriting
 from app.services.config_service import load_current_project, load_last_model_path, save_config
 from app.services.project_service import projects_folder, list_existing_projects
 from app.services.label_studio_service import launch_label_studio_async, configure_label_studio_root
-from app.services.label_studio_api_service import setup_ls_correction_project
+from app.services.label_studio_api_service import setup_ls_correction_project, delete_ls_projects
 
 testing_bp = Blueprint("testing", __name__)
 
@@ -170,6 +170,15 @@ def dispatch_corrections():
     # Fin du cycle : suppression des images augmentées (_PT) et de leurs annotations
     clean_data(project_folder)
 
+    # Les images corrigées et leurs corrections ont rejoint la vérité terrain : le projet de
+    # correction est supprimé dans Label Studio. Il sera recréé, vide, au prochain test de modèle.
+    try:
+        delete_ls_projects(project_name, corrections_only=True)
+    except Exception as e:
+        print(f"Projet de correction non supprimé : {e}")
+        flash(f"Le projet « {project_name}_corrections » n'a pas pu être supprimé dans Label Studio ({e}). "
+              f"Supprimez-le dans Label Studio avant le prochain test de modèle.")
+
     return render_template(
         "/pages/end_cycle.html",
         nom_du_projet=project_name)
@@ -207,7 +216,7 @@ def evaluate_model():
     images_omises = read_omitted_images(project_folder, model_folder)
     if images_omises:
         flash(f"{len(images_omises)} image(s) de test omise(s) de l'évaluation : "
-                f"le détail est indiqué sous les résultats.")
+              f"le détail est indiqué sous les résultats.")
 
     if matrix_path is None:
         return render_template("/pages/no_evaluation.html", project_name=project_name,

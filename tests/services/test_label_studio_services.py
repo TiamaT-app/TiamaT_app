@@ -24,7 +24,8 @@ class FauxLabelStudio:
         self.projets = {}       # id -> {"title", "label_config"}
         self.taches = {}        # id projet -> liste de tâches {"id", "data", "annotations"}
         self.synchronisations = []
-        self.suppressions = 0
+        self.suppressions = 0            # suppressions tâche par tâche
+        self.suppressions_groupees = 0   # suppressions de toutes les tâches d'un projet
         self._id = 0
 
         faux = self
@@ -40,6 +41,7 @@ class FauxLabelStudio:
         self.tasks = types.SimpleNamespace(
             list=lambda project: [types.SimpleNamespace(id=t["id"], data=t["data"]) for t in faux.taches[project]],
             delete=faux._supprimer_tache,
+            delete_all_tasks=faux._supprimer_toutes_les_taches,
         )
         storage = types.SimpleNamespace(create=lambda **kw: types.SimpleNamespace(id=faux._nouvel_id()),
                                         sync=lambda id: faux.synchronisations.append(id),
@@ -73,6 +75,10 @@ class FauxLabelStudio:
         self.suppressions += 1
         for taches in self.taches.values():
             taches[:] = [t for t in taches if t["id"] != id]
+
+    def _supprimer_toutes_les_taches(self, id):
+        self.suppressions_groupees += 1
+        self.taches[id] = []
 
     def images(self, projet):
         return sorted(t["data"]["image"] for t in self.taches[projet])
@@ -217,7 +223,7 @@ def test_recharger_la_page_de_correction_garde_les_taches(ls, fichiers_correctio
     correction(fichiers)
 
     assert [t["id"] for t in ls.taches[projet_id]] == ids_avant
-    assert ls.suppressions == 0
+    assert ls.suppressions == 0 and ls.suppressions_groupees == 0
 
 
 def test_autre_modele_sur_les_memes_images_remplace_les_taches(ls, fichiers_correction):
@@ -227,7 +233,7 @@ def test_autre_modele_sur_les_memes_images_remplace_les_taches(ls, fichiers_corr
 
     correction(fichiers_correction("t1.jpg", modele="modele_2"))
 
-    assert ls.suppressions == 1
+    assert ls.suppressions_groupees == 1
     assert len(ls.taches[projet_id]) == 1
 
 
@@ -237,6 +243,8 @@ def test_nouvelles_images_de_test_remplacent_les_anciennes(ls, fichiers_correcti
     correction(fichiers_correction("t3.jpg"))
 
     assert [t["data"]["image"].rsplit("/", 1)[-1] for t in ls.taches[projet_id]] == ["t3.jpg"]
+    # Une seule requête de suppression, et non une par tâche
+    assert ls.suppressions_groupees == 1 and ls.suppressions == 0
 
 
 # --- Suppression des projets Label Studio d'un projet TiamaT ------------------------------------------------
@@ -268,6 +276,24 @@ def test_suppression_sans_token(ls, ls_lance, monkeypatch):
     monkeypatch.delenv("LABEL_STUDIO_API_TOKEN")
     with pytest.raises(RuntimeError, match="token"):
         api.delete_ls_projects("manuscrits")
+
+
+def test_fin_de_cycle_supprime_seulement_le_projet_de_correction(ls, ls_lance):
+    for titre in ["manuscrits", "manuscrits_corrections", "incunables_corrections"]:
+        ls._creer_projet(titre)
+
+    assert api.delete_ls_projects("manuscrits", corrections_only=True) == ["manuscrits_corrections"]
+
+    assert sorted(p["title"] for p in ls.projets.values()) == ["incunables_corrections", "manuscrits"]
+
+
+def test_projet_de_correction_recree_au_test_suivant(ls, ls_lance, fichiers_correction):
+    correction(fichiers_correction("t1.jpg", "t2.jpg"))
+    api.delete_ls_projects("manuscrits", corrections_only=True)
+
+    projet_id, _ = correction(fichiers_correction("t3.jpg"))
+
+    assert [t["data"]["image"].rsplit("/", 1)[-1] for t in ls.taches[projet_id]] == ["t3.jpg"]
 
 
 # --- Connexion et lancement ------------------------------------------------------------------------------

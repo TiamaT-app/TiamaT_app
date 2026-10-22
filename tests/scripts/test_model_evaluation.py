@@ -156,6 +156,8 @@ def predictions_et_corrections(cycle, labels_resultats):
     corrigees = cycle["resultats"] / "correctedLabels"
     predictions.mkdir()
     corrigees.mkdir()
+    for nom in ["f1", "f2", "f3", "f4"]:   # le lot d'images de test en cours
+        (cycle["eval"] / f"{nom}.jpg").write_bytes(f"image-{nom}".encode())
     (predictions / "f1.txt").write_text("0 0.5 0.5 0.2 0.2 0.9\n")
     (corrigees / "f1.txt").write_text("0 0.5 0.5 0.2 0.2\n")
     (predictions / "f2.txt").write_text("0 0.3 0.3 0.2 0.2 0.8\n")
@@ -257,3 +259,15 @@ def test_une_image_non_corrigee_est_omise_et_signalee(cycle, predictions_et_corr
     assert "Number of FP : 2\n" in resume   # inchangé : f5 ne compte pas
     assert "Images omitted from the evaluation : 2" in resume
     assert " - f5.jpg : image non corrigée" in resume
+
+
+def test_correction_d_un_cycle_precedent_ignoree(cycle, predictions_et_corrections):
+    # f9 a été corrigée au cycle précédent (son image a rejoint la vérité terrain), mais sa
+    # correction est réapparue : elle ne doit pas compter comme un objet manqué par le modèle.
+    (cycle["resultats"] / "correctedLabels" / "f9.txt").write_text("0 0.5 0.5 0.2 0.2\n")
+
+    ev.get_csv_results(cycle["projet"], cycle["modele"], all_results=False)
+    ev.get_txt_results(cycle["projet"], cycle["modele"])
+
+    assert "f9.txt" not in lignes_du_csv(cycle)
+    assert "Number of FN: 2\n" in (cycle["resultats"] / "results" / "results_for_evaluation.txt").read_text()

@@ -76,13 +76,17 @@ def get_existing_project_id(project_name: str) -> int | None:
     return None
 
 
-def delete_ls_projects(project_name: str) -> list[str]:
+def delete_ls_projects(project_name: str, corrections_only: bool = False) -> list[str]:
     """
-    Supprime dans Label Studio les deux projets d'un projet TiamaT : le projet d'annotation
+    Supprime dans Label Studio les projets d'un projet TiamaT : le projet d'annotation
     ({project_name}) et le projet de correction ({project_name}_corrections).
 
-    Sans cette suppression, un nouveau projet TiamaT du même nom retrouverait dans Label Studio
-    (où les projets sont recherchés par titre) les tâches et annotations de l'ancien.
+    - À la suppression d'un projet TiamaT : les deux. Sans cela, un nouveau projet TiamaT du même
+      nom retrouverait dans Label Studio (où les projets sont recherchés par titre) les tâches et
+      annotations de l'ancien.
+    - En fin de cycle (corrections_only=True) : seulement le projet de correction. Ses images et
+      ses corrections ont rejoint la vérité terrain ; il sera recréé, vide, au prochain test.
+
     Les fichiers d'annotation sur le disque ne sont pas concernés.
 
     :return: les titres des projets supprimés.
@@ -95,7 +99,9 @@ def delete_ls_projects(project_name: str) -> list[str]:
         raise RuntimeError("Label Studio n'est pas lancé")
 
     client = _get_client()
-    titles = {project_name, f"{project_name}_corrections"}
+    titles = {f"{project_name}_corrections"}
+    if not corrections_only:
+        titles.add(project_name)
     deleted = []
     for project in client.projects.list():
         if project.title in titles:
@@ -379,10 +385,8 @@ def setup_ls_correction_project(
         # Mêmes tâches : on les garde, avec les corrections déjà faites
         return project_id, ls_url # type:ignore
 
-    # Nouvelles tâches : remplacer les anciennes.
-    # A MODIFIER ? Peut être long pour les dossiers avec beaucoup de tâches -> A voir à l'usage
-    for task in client.tasks.list(project=project_id):
-        client.tasks.delete(id=task.id)
+    # Nouvelles tâches : remplacer les anciennes, en une seule requête plutôt qu'une par tâche
+    client.tasks.delete_all_tasks(id=project_id)
     client.projects.import_tasks(id=project_id, request=ls_result) # type:ignore
     client.projects.update(id=project_id, description=fingerprint)
 

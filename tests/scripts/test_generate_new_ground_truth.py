@@ -173,7 +173,8 @@ def test_nouvelle_correction_remplace_l_annotation_existante_de_la_meme_image(cy
     # La même image, testée à nouveau puis corrigée : la nouvelle correction remplace l'ancienne annotation.
     (cycle["gt_images"] / "f1.jpg").write_bytes(b"image")
     (cycle["gt"] / "1").write_text(json.dumps({
-        "id": 1, "project": 3, "result": [{"value": {"rectanglelabels": ["miniature"]}}],
+        "id": 1, "project": 3, "updated_at": "2026-10-01T10:00:00Z",
+        "result": [{"value": {"rectanglelabels": ["miniature"]}}],
         "task": {"project": 3, "data": {"image": "/data/local-files/?d=projects/manuscrits/image_inputs/ground_truth_images/f1.jpg"}}}))
     (cycle["eval"] / "f1.jpg").write_bytes(b"image")
     correction_datee(cycle, "5", "f1.jpg", "2026-10-21T14:30:00Z", "initiale")
@@ -193,3 +194,19 @@ def test_les_corrections_d_images_differentes_sont_toutes_gardees(cycle):
     gng.move_correction_files_and_images(cycle["projet"])
 
     assert classes_de_la_verite_terrain(cycle) == ["initiale", "miniature"]
+
+
+def test_une_correction_plus_ancienne_ne_remplace_pas_la_verite_terrain(cycle):
+    # Une ancienne correction réexportée par Label Studio ne doit pas écraser
+    # une annotation de la même image validée depuis.
+    (cycle["gt"] / "1").write_text(json.dumps({
+        "id": 1, "project": 3, "updated_at": "2026-10-21T16:00:00Z",
+        "result": [{"value": {"rectanglelabels": ["initiale"]}}],
+        "task": {"project": 3, "data": {"image": "/data/local-files/?d=projects/manuscrits/image_inputs/ground_truth_images/f1.jpg"}}}))
+    correction_datee(cycle, "5", "f1.jpg", "2026-10-15T09:00:00Z", "miniature")
+
+    gng.move_correction_files_and_images(cycle["projet"])
+
+    assert [f.name for f in cycle["gt"].iterdir()] == ["1"]
+    assert classes_de_la_verite_terrain(cycle) == ["initiale"]
+    assert list(cycle["corrections"].iterdir()) == []
