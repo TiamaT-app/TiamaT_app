@@ -46,3 +46,18 @@ def espace_projets(tmp_path, monkeypatch):
         if nom.startswith("app.") and getattr(module, "projects_folder", None) == vrai_dossier:
             monkeypatch.setattr(module, "projects_folder", dossier_projets)
     return tmp_path
+
+
+@pytest.fixture(autouse=True)
+def sans_vrai_label_studio(monkeypatch):
+    """Garantit qu'aucun test ne contacte le vrai Label Studio, même s'il tourne sur l'ordinateur.
+
+    autouse=True : cette fixture s'applique à tous les tests, sans qu'ils aient à la demander.
+    Le token est retiré de l'environnement, et Label Studio est considéré comme non lancé.
+    Sans elle, un test de suppression de projet pourrait supprimer de vrais projets Label Studio
+    portant le même nom que les projets de test. Les tests qui ont besoin d'un Label Studio
+    « lancé » le simulent eux-mêmes, avec un faux client.
+    """
+    from app.services import label_studio_api_service
+    monkeypatch.delenv("LABEL_STUDIO_API_TOKEN", raising=False)
+    monkeypatch.setattr(label_studio_api_service, "is_label_studio_running", lambda port=None: False)

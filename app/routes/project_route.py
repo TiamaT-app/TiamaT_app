@@ -24,6 +24,7 @@ from ..src.models.formulaires import NomDuProjet, ImportImages, ImportModel, Con
 from app.services.config_service import load_current_project, save_config
 from app.services.project_service import list_existing_projects, create_project_structure, delete_project
 from app.services.image_service import get_preview_images
+from app.services.label_studio_api_service import delete_ls_projects
 
 
 project_bp = Blueprint("project", __name__)
@@ -143,4 +144,12 @@ def suppression_projet():
     # Le projet supprimé ne doit plus être le projet courant
     save_config(project_name="")
     flash(f"Projet {project_name} supprimé.")
+
+    # Ses projets dans Label Studio, sans quoi un nouveau projet du même nom les retrouverait
+    try:
+        delete_ls_projects(project_name)
+    except Exception as e:
+        print(f"Projets Label Studio de {project_name} non supprimés : {e}")
+        flash(f"Les projets de « {project_name} » n'ont pas pu être supprimés dans Label Studio ({e}). "
+              f"Supprimez-les dans Label Studio avant de recréer un projet de ce nom.")
     return redirect(url_for('project.accueil'))

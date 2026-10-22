@@ -76,6 +76,34 @@ def get_existing_project_id(project_name: str) -> int | None:
     return None
 
 
+def delete_ls_projects(project_name: str) -> list[str]:
+    """
+    Supprime dans Label Studio les deux projets d'un projet TiamaT : le projet d'annotation
+    ({project_name}) et le projet de correction ({project_name}_corrections).
+
+    Sans cette suppression, un nouveau projet TiamaT du même nom retrouverait dans Label Studio
+    (où les projets sont recherchés par titre) les tâches et annotations de l'ancien.
+    Les fichiers d'annotation sur le disque ne sont pas concernés.
+
+    :return: les titres des projets supprimés.
+    :raises RuntimeError: si Label Studio n'est pas lancé ou si le token d'API manque.
+    """
+    if not _token():
+        raise RuntimeError("le token d'API de Label Studio n'est pas encore enregistré")
+    port = int(LS_URL.rsplit(':', 1)[1])
+    if not is_label_studio_running(port):
+        raise RuntimeError("Label Studio n'est pas lancé")
+
+    client = _get_client()
+    titles = {project_name, f"{project_name}_corrections"}
+    deleted = []
+    for project in client.projects.list():
+        if project.title in titles:
+            client.projects.delete(id=project.id)
+            deleted.append(project.title)
+    return sorted(deleted)
+
+
 def create_ls_project(project_name: str) -> int:
     """Cree un projet Label Studio et renvoie son ID."""
     client = _get_client()

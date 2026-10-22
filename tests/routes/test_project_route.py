@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 
 from app.services.project_service import create_project_structure
+import app.routes.project_route as project_route
 
 
 def projet_courant(racine):
@@ -184,3 +185,32 @@ def test_bouton_de_suppression_envoie_un_formulaire(client, espace_projets):
     page = client.post("/accueil_projet", data={"nom": "manuscrits"}).get_data(as_text=True)
     assert 'action="/suppression_projet"' in page
     assert 'href="/suppression_projet"' not in page
+
+def test_suppression_supprime_aussi_les_projets_label_studio(client, espace_projets, mocker):
+    suppression_ls = mocker.patch.object(project_route, "delete_ls_projects", return_value=["manuscrits"])
+    create_project_structure("manuscrits")
+    definir_projet_courant(espace_projets, "manuscrits")
+
+    client.post("/suppression_projet")
+
+    suppression_ls.assert_called_once_with("manuscrits")
+
+def test_suppression_si_label_studio_n_est_pas_lance(client, espace_projets, mocker):
+    # Le projet TiamaT est supprimé quand même, et l'utilisateur est prévenu.
+    mocker.patch.object(project_route, "delete_ls_projects", side_effect=RuntimeError("Label Studio n'est pas lancé"))
+    flash = mocker.spy(project_route, "flash")
+    create_project_structure("manuscrits")
+    definir_projet_courant(espace_projets, "manuscrits")
+
+    reponse = client.post("/suppression_projet")
+
+    assert reponse.status_code == 302
+    assert not (espace_projets / "projects" / "manuscrits").exists()
+    assert "Label Studio n'est pas lancé" in flash.call_args.args[0]
+
+
+def test_suppression_refusee_ne_touche_pas_label_studio(client, espace_projets, mocker):
+    # Sans projet courant valide, rien n'est supprimé, ni dans TiamaT ni dans Label Studio.
+    suppression_ls = mocker.patch.object(project_route, "delete_ls_projects")
+    client.post("/suppression_projet")
+    suppression_ls.assert_not_called()

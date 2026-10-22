@@ -35,6 +35,7 @@ class FauxLabelStudio:
             get=lambda id: types.SimpleNamespace(id=id, label_config=faux.projets[id]["label_config"],
                                                  description=faux.projets[id].get("description")),
             import_tasks=faux._importer,
+            delete=faux._supprimer_projet,
         )
         self.tasks = types.SimpleNamespace(
             list=lambda project: [types.SimpleNamespace(id=t["id"], data=t["data"]) for t in faux.taches[project]],
@@ -58,6 +59,10 @@ class FauxLabelStudio:
 
     def _mettre_a_jour_projet(self, id, **champs):
         self.projets[id].update(champs)
+
+    def _supprimer_projet(self, id):
+        del self.projets[id]
+        del self.taches[id]
 
     def _importer(self, id, request):
         for tache in request:
@@ -232,6 +237,37 @@ def test_nouvelles_images_de_test_remplacent_les_anciennes(ls, fichiers_correcti
     correction(fichiers_correction("t3.jpg"))
 
     assert [t["data"]["image"].rsplit("/", 1)[-1] for t in ls.taches[projet_id]] == ["t3.jpg"]
+
+
+# --- Suppression des projets Label Studio d'un projet TiamaT ------------------------------------------------
+
+@pytest.fixture
+def ls_lance(ls, mocker, monkeypatch):
+    monkeypatch.setenv("LABEL_STUDIO_API_TOKEN", "abc123")
+    return mocker.patch.object(api, "is_label_studio_running", return_value=True)
+
+
+def test_suppression_des_projets_label_studio(ls, ls_lance):
+    for titre in ["manuscrits", "manuscrits_corrections", "incunables", "manuscrits_bis"]:
+        ls._creer_projet(titre)
+
+    supprimes = api.delete_ls_projects("manuscrits")
+
+    assert supprimes == ["manuscrits", "manuscrits_corrections"]
+    # Les autres projets, même au nom proche, ne sont pas touchés
+    assert sorted(p["title"] for p in ls.projets.values()) == ["incunables", "manuscrits_bis"]
+
+
+def test_suppression_label_studio_non_lance(ls, ls_lance):
+    ls_lance.return_value = False
+    with pytest.raises(RuntimeError, match="pas lancé"):
+        api.delete_ls_projects("manuscrits")
+
+
+def test_suppression_sans_token(ls, ls_lance, monkeypatch):
+    monkeypatch.delenv("LABEL_STUDIO_API_TOKEN")
+    with pytest.raises(RuntimeError, match="token"):
+        api.delete_ls_projects("manuscrits")
 
 
 # --- Connexion et lancement ------------------------------------------------------------------------------
