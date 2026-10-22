@@ -43,7 +43,7 @@
     <div class="panneau panneau--ocre">
     <p class="etiquette">À prendre en compte</p>
     <h2>Images omises de l'évaluation ({{ images_omises|length }})</h2>
-    <p class="chapo">Ces images de test ne sont pas comptées dans les résultats ci-dessus. Une image dont les prédictions sont toutes justes doit tout de même être validée dans Label Studio pour être évaluée.</p>
+    <p>Ces images de test ne sont pas comptées dans les résultats ci-dessus. Une image dont les prédictions sont toutes justes doit tout de même être validée dans Label Studio pour être évaluée.</p>
     <ul>
       {% for image in images_omises %}
       <li><strong>{{ image.image }}</strong> : {{ image.raison }}</li>
