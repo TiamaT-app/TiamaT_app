@@ -61,8 +61,13 @@
   <div class="page resultats-bas__simple">
     <p class="etiquette">Et maintenant ?</p>
     <h2>Ajouter les images corrigées au jeu d'entraînement</h2>
-    <p class="chapo">Elles rejoindront la vérité terrain du projet, prêtes pour un nouveau cycle d'entraînement.</p>
+    <p class="chapo">Elles rejoindront la vérité terrain du projet, prêtes pour un nouveau cycle d'entraînement. Vous pouvez aussi terminer le cycle sans les ajouter : elles seront archivées dans le projet, avec les résultats de l'évaluation.</p>
     <a class="bouton bouton--orange bouton--fleche" href="{{ url_for('testing.dispatch_corrections') }}">Ajouter au jeu d'entraînement</a>
+    {# Fin de cycle sans ajout : formulaire POST avec son jeton CSRF, comme la suppression de projet. #}
+    <form method="post" action="{{ url_for('testing.discard_corrections') }}" style="display: contents">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="bouton bouton--rouge bouton--fleche">Ne pas ajouter à la vérité terrain</button>
+    </form>
   </div>
 </section>
 

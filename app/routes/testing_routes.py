@@ -6,7 +6,8 @@ Parcours d'un cycle :
 2. check_inference() : page d'attente, jusqu'a la fin des predictions
 3. test_end() : les predictions sont envoyees a Label Studio pour correction
 4. evaluate_model() : comparaison des predictions et des corrections (metriques, matrice de confusion)
-5. dispatch_corrections() : les images corrigees rejoignent la verite terrain du projet
+5. dispatch_corrections() : les images corrigees rejoignent la verite terrain du projet,
+   ou discard_corrections() : le cycle se termine sans rien y ajouter, les images et corrections sont archivees
 
 L'etat des predictions est transmis par os.environ["test_complete"] : "False" pendant
 les predictions, puis "True" ou "Error" (voir process_images_with_yolo).
@@ -23,14 +24,15 @@ from flask_uploads import configure_uploads
 from ..src.scripts.model_evaluation import (get_corrected_label_files, get_csv_results, get_txt_results,
                                             create_confusion_matrix, read_omitted_images)
 from ..src.scripts.generate_new_ground_truth import (create_new_ground_truth, move_correction_files_and_images,
-                                                     add_csv_data, clean_data)
+                                                     add_csv_data, clean_data, archive_test_images)
 from ..src.scripts.predicting_and_checking_yolo_results import (process_images_with_yolo, yolo_to_csv,
                                                                 get_ls_for_local_files)
 
 from ..src.modules.models_functions import get_model_list
 from ..src.modules.generate_labels import add_new_labels, get_labeling_code
 
-from ..src.models.formulaires import images as images_uploadees, images2 as images_uploadees2, ImportImages, ImportImages2
+from ..src.models.formulaires import (images as images_uploadees, images2 as images_uploadees2, ImportImages,
+                                      ImportImages2, ConfirmationSuppression)
 from .upload_routes import save_without_overwriting
 
 from app.services.config_service import load_current_project, load_last_model_path, save_config
@@ -172,6 +174,17 @@ def dispatch_corrections():
 
     # Les images corrigées et leurs corrections ont rejoint la vérité terrain : le projet de
     # correction est supprimé dans Label Studio. Il sera recréé, vide, au prochain test de modèle.
+    _delete_ls_correction_project(project_name)
+
+    return render_template(
+        "/pages/end_cycle.html",
+        nom_du_projet=project_name,
+        ajout_verite_terrain=True,
+        archive=None)
+
+
+def _delete_ls_correction_project(project_name: str) -> None:
+    """Supprime le projet de correction dans Label Studio, en prévenant l'utilisateur en cas d'échec."""
     try:
         delete_ls_projects(project_name, corrections_only=True)
     except Exception as e:
@@ -179,9 +192,36 @@ def dispatch_corrections():
         flash(f"Le projet « {project_name}_corrections » n'a pas pu être supprimé dans Label Studio ({e}). "
               f"Supprimez-le dans Label Studio avant le prochain test de modèle.")
 
+
+@testing_bp.route("/discard_corrections", methods=["POST"])
+def discard_corrections():
+    """
+    Fin de cycle sans ajout à la vérité terrain : les images de test et leurs corrections sont
+    déplacées dans un dossier d'archive daté du projet, avec une copie des résultats de l'évaluation.
+    POST uniquement, avec le jeton CSRF, comme la suppression de projet : un simple lien vers
+    cette URL ne peut rien déclencher.
+    """
+    form = ConfirmationSuppression()
+    if not form.validate_on_submit():
+        flash("La demande n'a pas pu être vérifiée, merci de réessayer.")
+        return redirect(url_for('project.accueil_projet'))
+
+    project_name, model_folder = _current_project_and_model()
+    if project_name is None:
+        return redirect(url_for('project.accueil'))
+    project_folder = projects_folder / project_name
+
+    archive = archive_test_images(project_folder, model_folder)
+    # Comme en fin de cycle normale : suppression des images augmentées (_PT) et de leurs annotations
+    clean_data(project_folder)
+    # Les corrections sont archivées sur le disque : le projet de correction peut être supprimé
+    _delete_ls_correction_project(project_name)
+
     return render_template(
         "/pages/end_cycle.html",
-        nom_du_projet=project_name)
+        nom_du_projet=project_name,
+        ajout_verite_terrain=False,
+        archive=f"{project_name}/archives/{archive.name}" if archive else None)
 
 
 @testing_bp.route("/evaluate_model", methods=['GET', 'POST'])

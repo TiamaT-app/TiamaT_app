@@ -7,7 +7,14 @@
 <div class="entete-page">
   <p class="etiquette">Étape 8</p>
   <h1>Bravo, un cycle de plus</h1>
+  {% if ajout_verite_terrain %}
   <p class="chapo">Les images corrigées du projet {{ nom_du_projet }} ont été ajoutées à la vérité terrain.</p>
+  {% else %}
+    <p class="chapo">Le cycle est terminé sans ajout à la vérité terrain de {{ nom_du_projet }}.</p>
+    {% if archive %}
+    <p class="chapo">Les images de test, leurs corrections et les résultats de l'évaluation sont archivés dans : projects/{{ archive }}.</p>
+    {% endif %}
+{% endif %}
 </div>
 
 <div class="actions">

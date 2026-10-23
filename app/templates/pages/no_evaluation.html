@@ -1,7 +1,7 @@
 {% extends "pages/head_foot.html" %}
 {% import "components/ui.html" as ui %}
 {% set etape_active = 7 %}
-{% set sol_page = 'vert' %}
+{% set sol_page = 'bleu' %}
 {% block titre %}Évaluation indisponible &middot; TiamaT{% endblock %}
 {% block body %}
 
@@ -13,13 +13,20 @@
     <li>le modèle n'a détecté aucun objet sur les images testées, et aucune correction n'a été faite ;</li>
     <li>les images utilisées pour l'évaluation sont les mêmes que celles utilisées pour l'entraînement — les résultats ne seraient pas représentatifs.</li>
   </ul>
-  <p>Pour obtenir une évaluation pertinente, testez le modèle sur de nouvelles images.</p>
-  {{ ui.bouton("Tester de nouvelles images", href=url_for('testing.test_pretrained'), fleche=true) }}
+  <p>Pour obtenir une évaluation pertinente, testez le modèle sur de nouvelles images. Vous pouvez aussi terminer le cycle sans rien ajouter à la vérité terrain : les images de test et leurs corrections seront archivées dans le projet.</p>
+  <div class="action">
+    {{ ui.bouton("Tester de nouvelles images", href=url_for('testing.test_pretrained'), fleche=true) }}
+    {# Fin de cycle sans ajout : formulaire POST avec son jeton CSRF, comme la suppression de projet. #}
+    <form method="post" action="{{ url_for('testing.discard_corrections') }}" style="display: contents">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="bouton bouton--noir bouton--fleche">Ne pas ajouter à la vérité terrain</button>
+    </form>
+  </div>
 </section>
 
 {% if images_omises %}
 <section class="page">
-<div class="panneau panneau--orange">
+<div class="panneau panneau--ocre">
 <p class="etiquette">À prendre en compte</p>
 <h2>Images omises de l'évaluation ({{ images_omises|length }})</h2>
 <p class="chapo">Une image dont les prédictions sont toutes justes doit tout de même être validée dans Label Studio pour être évaluée.</p>
