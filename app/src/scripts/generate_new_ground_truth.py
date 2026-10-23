@@ -477,3 +477,71 @@ def clean_data(project_folder:str | Path) -> None:
             
             
     print(f"[OK] {removed_annotations} transformed annotation(s) removed from {labels_folder}")
+
+
+def archive_test_images(project_folder: str | Path, yolo_model_folder: str | Path) -> Path | None:
+    """
+    End a test cycle without adding the test images to the ground truth: the test images and
+    their corrections are moved to a dated archive folder instead of being deleted.
+
+    The working folders must be emptied: anything left in `image_inputs/eval_images/` would be
+    predicted again at the next test, and anything left in `annotations/prediction_corrections/`
+    would be counted in the next evaluation. Nothing is deleted, though: the corrections are
+    human work, and can be added later by moving them back.
+
+    The archive folder, `archives/<date>_<model>/` in the project folder, contains:
+    - `images/`: every file of `eval_images/` (test images, and their metadata CSV `<project>.csv`);
+    - `corrections/`: every correction file, whatever its extension (the files exported by
+      Label Studio have none). Hidden files (`.DS_Store`) are left untouched;
+    - `resultats/`: a copy of the evaluation results (confusion matrix, metrics), which the next
+      test of the same model would overwrite.
+
+    The ground truth (images and annotations) is not modified.
+
+    Parameters
+    ----------
+    project_folder : str
+        Path to the root project folder.
+    yolo_model_folder : str
+        Path to the tested YOLO model folder, used to locate the evaluation results.
+
+    Returns
+    -------
+    Path | None
+        The archive folder, or None if there was nothing to archive.
+    """
+
+    # Recompose paths
+    eval_folder = Path(get_img_folder_inference(project_folder))
+    pred_cors_folder = Path(get_corrections_folder_inference(project_folder))
+    results_folder = Path(get_results_folder(project_folder, yolo_model_folder))
+
+    test_files = [f for f in eval_folder.iterdir() if f.is_file()] if eval_folder.is_dir() else []
+    corrections = ([f for f in pred_cors_folder.iterdir() if f.is_file() and not f.name.startswith('.')]
+                   if pred_cors_folder.is_dir() else [])
+    if not test_files and not corrections:
+        print("[WARN] No test image nor correction to archive")
+        return None
+
+    archives_folder = Path(project_folder) / 'archives'
+    archives_folder.mkdir(exist_ok=True)
+    name = f"{datetime.now():%Y-%m-%d_%H%M}_{Path(yolo_model_folder).name}"
+    archive_folder = archives_folder / _free_name(archives_folder, name)
+
+    for subfolder, files in [('images', test_files), ('corrections', corrections)]:
+        (archive_folder / subfolder).mkdir(parents=True)
+        for file in files:
+            shutil.move(str(file), str(archive_folder / subfolder / file.name))
+
+    # Results of the evaluation (files only: correctedLabels/ can be generated again from the corrections)
+    copied_results = 0
+    if results_folder.is_dir():
+        (archive_folder / 'resultats').mkdir()
+        for file in results_folder.iterdir():
+            if file.is_file() and not file.name.startswith('.'):
+                shutil.copy2(str(file), str(archive_folder / 'resultats' / file.name))
+                copied_results += 1
+
+    print(f"[OK] {len(test_files)} test file(s), {len(corrections)} correction(s) and "
+          f"{copied_results} result file(s) archived in {archive_folder}")
+    return archive_folder
